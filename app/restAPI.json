@@ -1,0 +1,1207 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Hyperledger Fabric API",
+        "description": "Interact with the enterprise blockchain through Hyperledger Fabric API",
+        "version": "1.0.0"
+    },
+    "host": "23.91.105.254:7060",
+    "schemes": [
+        "http"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "paths": {
+        "/api/login": {
+            "post": {
+                "summary": "user login",
+                "description": "提供用户名和密码以登陆系统",
+                "tags": [
+                    "user"
+                ],
+                "operationId": "userLogin",
+                "parameters": [{
+                    "name": "Secret",
+                    "in": "body",
+                    "description": "用户名密码",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#/definitions/Secret"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "登陆成功",
+                        "schema": {
+                            "$ref": "#/definitions/LoginOK"
+                        }
+                    },
+                    "default": {
+                        "description": "登陆失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "get": {
+                "summary": "user logout",
+                "description": "退出登陆",
+                "tags": [
+                    "user"
+                ],
+                "operationId": "userlogout",
+                "responses": {
+                    "200": {
+                        "description": "退出登录成功",
+                        "schema": {
+                            "$ref": "#/definitions/LogoutOK"
+                        }
+                    },
+                    "default": {
+                        "description": "退出登陆失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/islogin": {
+            "get": {
+                "summary": "check login",
+                "description": "检测登陆",
+                "tags": [
+                    "user"
+                ],
+                "operationId": "islogin",
+                "responses": {
+                    "200": {
+                        "description": "已经登陆",
+                        "schema": {
+                            "$ref": "#/definitions/LoginOK"
+                        }
+                    },
+                    "default": {
+                        "description": "检测失败或未登录",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/mycurrency": {
+            "get": {
+                "summary": "get my currency",
+                "description": "获取登陆用户的创建的币",
+                "tags": [
+                    "user"
+                ],
+                "operationId": "mycurrency",
+                "responses": {
+                    "200": {
+                        "description": "个人币信息",
+                        "schema": {
+                            "$ref": "#/definitions/MyCurrency"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/myasset": {
+            "get": {
+                "summary": "get my asset",
+                "description": "获取登陆用户的现有资产",
+                "tags": [
+                    "user"
+                ],
+                "operationId": "myasset",
+                "responses": {
+                    "200": {
+                        "description": "个人资产信息",
+                        "schema": {
+                            "$ref": "#/definitions/MyAsset"
+                        }
+                    },
+                    "default": {
+                        "description": "Unexpected error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currencys": {
+            "get": {
+                "summary": "currency",
+                "description": "查询所有币",
+                "tags": [
+                    "currency"
+                ],
+                "operationId": "currency",
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/Currencys"
+                        }
+                    },
+                    "default": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/{currencyid}": {
+            "get": {
+                "summary": "currency",
+                "description": "查询单个币",
+                "tags": [
+                    "currency"
+                ],
+                "parameters": [{
+                    "name": "currencyid",
+                    "in": "path",
+                    "description": "currency id",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "currency1",
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/Currency1"
+                        }
+                    },
+                    "default": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/create": {
+            "post": {
+                "summary": "create currency",
+                "description": "创建币",
+                "tags": [
+                    "currency"
+                ],
+                "operationId": "createCurrency",
+                "parameters": [{
+                    "name": "CurrencyReq",
+                    "in": "body",
+                    "description": "币信息",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#/definitions/CurrencyReq"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "创建币成功",
+                        "schema": {
+                            "$ref": "#/definitions/TxOK"
+                        }
+                    },
+                    "default": {
+                        "description": "创建币失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/create/{txid}": {
+            "get": {
+                "summary": "currency",
+                "description": "校验创建币结果",
+                "tags": [
+                    "currency"
+                ],
+                "parameters": [{
+                    "name": "txid",
+                    "in": "path",
+                    "description": "txid",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "checkCreate",
+                "responses": {
+                    "200": {
+                        "description": "校验成功",
+                        "schema": {
+                            "$ref": "#/definitions/CheckResult"
+                        }
+                    },
+                    "default": {
+                        "description": "校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/release": {
+            "post": {
+                "summary": "release currency",
+                "description": "追加币",
+                "tags": [
+                    "currency"
+                ],
+                "operationId": "releaseCurrency",
+                "parameters": [{
+                    "name": "CurrencyReq",
+                    "in": "body",
+                    "description": "币信息",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#/definitions/CurrencyReq"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "追加币成功",
+                        "schema": {
+                            "$ref": "#/definitions/TxOK"
+                        }
+                    },
+                    "default": {
+                        "description": "追加币失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/release/{txid}": {
+            "get": {
+                "summary": "currency",
+                "description": "校验增加币结果",
+                "tags": [
+                    "currency"
+                ],
+                "parameters": [{
+                    "name": "txid",
+                    "in": "path",
+                    "description": "txid",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "checkRelease",
+                "responses": {
+                    "200": {
+                        "description": "校验成功",
+                        "schema": {
+                            "$ref": "#/definitions/CheckResult"
+                        }
+                    },
+                    "default": {
+                        "description": "校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/assign": {
+            "post": {
+                "summary": "assign currency",
+                "description": "分发币",
+                "tags": [
+                    "currency"
+                ],
+                "operationId": "assignCurrency",
+                "parameters": [{
+                    "name": "AssignReq",
+                    "in": "body",
+                    "description": "分发币信息",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#/definitions/AssignReq"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "分发币成功",
+                        "schema": {
+                            "$ref": "#/definitions/TxOK"
+                        }
+                    },
+                    "default": {
+                        "description": "分发币失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/currency/assign/{txid}": {
+            "get": {
+                "summary": "currency",
+                "description": "校验分发币结果",
+                "tags": [
+                    "currency"
+                ],
+                "parameters": [{
+                    "name": "txid",
+                    "in": "path",
+                    "description": "txid",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "checkAssign",
+                "responses": {
+                    "200": {
+                        "description": "校验成功",
+                        "schema": {
+                            "$ref": "#/definitions/CheckResult"
+                        }
+                    },
+                    "default": {
+                        "description": "校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/exchange": {
+            "post": {
+                "summary": "exchange",
+                "description": "挂单",
+                "tags": [
+                    "tx"
+                ],
+                "operationId": "exchange",
+                "parameters": [{
+                    "name": "ExchangeReq",
+                    "in": "body",
+                    "description": "挂单信息",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#/definitions/ExchangeReq"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "挂单成功",
+                        "schema": {
+                            "$ref": "#/definitions/TxOK"
+                        }
+                    },
+                    "default": {
+                        "description": "挂单失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/exchange/{uuid}": {
+            "get": {
+                "summary": "check exchange",
+                "description": "校验挂单结果",
+                "tags": [
+                    "tx"
+                ],
+                "parameters": [{
+                    "name": "uuid",
+                    "in": "path",
+                    "description": "order uuid",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "checkExchange",
+                "responses": {
+                    "200": {
+                        "description": "校验成功",
+                        "schema": {
+                            "$ref": "#/definitions/CheckResult"
+                        }
+                    },
+                    "default": {
+                        "description": "校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/cancel": {
+            "post": {
+                "summary": "cancel",
+                "description": "撤单",
+                "tags": [
+                    "tx"
+                ],
+                "operationId": "cancel",
+                "parameters": [{
+                    "name": "uuid",
+                    "in": "body",
+                    "description": "单号",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "撤单成功",
+                        "schema": {
+                            "$ref": "#/definitions/TxOK"
+                        }
+                    },
+                    "default": {
+                        "description": "挂单失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/cancel/{uuid}": {
+            "get": {
+                "summary": "check cancel",
+                "description": "校验撤单结果",
+                "tags": [
+                    "tx"
+                ],
+                "parameters": [{
+                    "name": "uuid",
+                    "in": "path",
+                    "description": "order uuid",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "checkCancel",
+                "responses": {
+                    "200": {
+                        "description": "校验成功",
+                        "schema": {
+                            "$ref": "#/definitions/CheckResult"
+                        }
+                    },
+                    "default": {
+                        "description": "校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/my/{status}/{count}": {
+            "get": {
+                "summary": "mytx",
+                "description": "获取个人交易记录",
+                "tags": [
+                    "tx"
+                ],
+                "parameters": [{
+                        "name": "status",
+                        "in": "path",
+                        "description": "挂单状态，,<0时取全部状态",
+                        "type": "integer",
+                        "required": true
+                    },
+                    {
+                        "name": "count",
+                        "in": "path",
+                        "description": "获取记录条数,<=0时取全部记录",
+                        "type": "integer",
+                        "required": true
+                    }
+                ],
+                "operationId": "getMyTxs",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "$ref": "#/definitions/MyTxs"
+                        }
+                    },
+                    "default": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/{srccurrency}/{descurrency}/{count}": {
+            "get": {
+                "summary": "currency tx",
+                "description": "获取两币之间的交易",
+                "tags": [
+                    "tx"
+                ],
+                "parameters": [{
+                        "name": "srccurrency",
+                        "in": "path",
+                        "description": "源币",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "name": "descurrency",
+                        "in": "path",
+                        "description": "目标币",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "name": "count",
+                        "in": "path",
+                        "description": "获取记录条数,<=0时取全部记录",
+                        "type": "integer",
+                        "required": true
+                    }
+                ],
+                "operationId": "getCurrencyTxs",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "$ref": "#/definitions/CurrencyTxs"
+                        }
+                    },
+                    "default": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/market/{srccurrency}/{descurrency}/{count}": {
+            "get": {
+                "summary": "market",
+                "description": "获取两币之间的市场上的挂单（等待撮合的）",
+                "tags": [
+                    "tx"
+                ],
+                "parameters": [{
+                        "name": "srccurrency",
+                        "in": "path",
+                        "description": "源币",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "name": "descurrency",
+                        "in": "path",
+                        "description": "目标币",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "name": "count",
+                        "in": "path",
+                        "description": "获取记录条数,<=0时取全部记录",
+                        "type": "integer",
+                        "required": true
+                    }
+                ],
+                "operationId": "getMarket",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "$ref": "#/definitions/Markets"
+                        }
+                    },
+                    "default": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tx/{uuid}": {
+            "get": {
+                "summary": "t'x",
+                "description": "挂单详细信息",
+                "tags": [
+                    "tx"
+                ],
+                "parameters": [{
+                    "name": "uuid",
+                    "in": "path",
+                    "description": "挂单id",
+                    "type": "string",
+                    "required": true
+                }],
+                "operationId": "getTx",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "$ref": "#/definitions/Tx"
+                        }
+                    },
+                    "default": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "Secret": {
+            "type": "object",
+            "properties": {
+                "enrollId": {
+                    "type": "string",
+                    "description": "User enrollment id registered with the certificate authority."
+                },
+                "enrollSecret": {
+                    "type": "string",
+                    "description": "User enrollment password registered with the certificate authority."
+                }
+            }
+        },
+        "Error": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'failed'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string",
+                            "description": "error code."
+                        },
+                        "msg": {
+                            "type": "string",
+                            "description": "error message."
+                        }
+                    }
+                }
+            }
+        },
+        "LoginOK": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "userInfo": {
+                            "$ref": "#/definitions/Secret"
+                        }
+                    }
+                }
+            }
+        },
+        "LogoutOK": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                }
+            }
+        },
+        "TxOK": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "txid": {
+                            "type": "string",
+                            "description": "txid 用户check最终结果"
+                        }
+                    }
+                }
+            }
+        },
+        "MyCurrency": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "currencys": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Currency"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "MyAsset": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "assets": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Asset"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "MyTxs": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "orders": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Order"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "Tx": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "order": {
+                            "$ref": "#/definitions/Order"
+                        }
+                    }
+                }
+            }
+        },
+        "CurrencyTxs": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "srcDes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Order"
+                            }
+                        },
+                        "desSrc": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Order"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "Markets": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "srcDes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Market"
+                            }
+                        },
+                        "desSrc": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Market"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "Currency": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": ""
+                },
+                "count": {
+                    "type": "number",
+                    "format": "double",
+                    "description": ""
+                },
+                "leftCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": ""
+                },
+                "creator": {
+                    "type": "string",
+                    "description": ""
+                },
+                "user": {
+                    "type": "string",
+                    "description": ""
+                },
+                "createTime": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": ""
+                }
+            }
+        },
+        "CurrencyReq": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": ""
+                },
+                "count": {
+                    "type": "number",
+                    "format": "double",
+                    "description": ""
+                }
+            }
+        },
+        "Asset": {
+            "type": "object",
+            "properties": {
+                "owner": {
+                    "type": "string",
+                    "description": ""
+                },
+                "currency": {
+                    "type": "string",
+                    "description": ""
+                },
+                "count": {
+                    "type": "number",
+                    "format": "double",
+                    "description": ""
+                },
+                "lockCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": ""
+                }
+            }
+        },
+        "AssignReq": {
+            "type": "object",
+            "properties": {
+                "currency": {
+                    "type": "string",
+                    "description": "被分发的币"
+                },
+                "assigns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Assign"
+                    }
+                }
+            }
+        },
+        "Assign": {
+            "type": "object",
+            "properties": {
+                "owner": {
+                    "type": "string",
+                    "description": "接收者"
+                },
+                "count": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": ""
+                }
+            }
+        },
+        "Currencys": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "currencys": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Currency"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "Currency1": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "currency": {
+                            "$ref": "#/definitions/Currency"
+                        }
+                    }
+                }
+            }
+        },
+        "CheckResult": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "must be 'success'."
+                },
+                "result": {
+                    "type": "object",
+                    "properties": {
+                        "flag": {
+                            "type": "string",
+                            "description": "1:成功,不需继续轮询;0:未果,需要继续轮询"
+                        }
+                    }
+                }
+            }
+        },
+        "Order": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string",
+                    "description": "挂单id"
+                },
+                "account": {
+                    "type": "string",
+                    "description": "挂单账户"
+                },
+                "srcCurrency": {
+                    "type": "string",
+                    "description": "源币"
+                },
+                "srcCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "源币数量"
+                },
+                "desCurrency": {
+                    "type": "string",
+                    "description": "目标币"
+                },
+                "desCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "目标币数量"
+                },
+                "isBuyAll": {
+                    "type": "boolean",
+                    "description": "是否买入所有，即为true是以目标币全部兑完为主,否则算部分成交,买完为止；为false则是以源币全部兑完为主,否则算部分成交，卖完为止"
+                },
+                "expiredTime": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "挂单超时unix时间"
+                },
+                "expiredDate": {
+                    "type": "string",
+                    "description": "挂单超时时间"
+                },
+                "PendingTime": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "挂单时间unix"
+                },
+                "pendingDate": {
+                    "type": "string",
+                    "description": "挂单时间"
+                },
+                "PendedTime": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "挂单完成时间unix"
+                },
+                "pendedDate": {
+                    "type": "string",
+                    "description": "挂单完成时间"
+                },
+                "matchedTime": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "挂单撮合完成时间unix"
+                },
+                "matchedDate": {
+                    "type": "string",
+                    "description": "挂单撮合完成时间"
+                },
+                "finishedTime": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "挂单交易完成时间unix"
+                },
+                "finishedDate": {
+                    "type": "string",
+                    "description": "挂单交易完成时间"
+                },
+                "rawUUID": {
+                    "type": "string",
+                    "description": "母单"
+                },
+                "metadata": {
+                    "type": "string",
+                    "description": "存放其他数据，如挂单锁定失败信息"
+                },
+                "finalCost": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "源币的最终消耗数量，主要用于买完（IsBuyAll=true）的最后一笔交易计算结余，此时SrcCount有可能大于FinalCost"
+                },
+                "status": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "状态 0：待交易，1：完成，2：过期，3：撤单"
+                }
+            }
+        },
+        "Market": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string",
+                    "description": "挂单id"
+                },
+                "srcCurrency": {
+                    "type": "string",
+                    "description": "源币"
+                },
+                "srcCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "源币数量"
+                },
+                "desCurrency": {
+                    "type": "string",
+                    "description": "目标币"
+                },
+                "desCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "目标币数量"
+                },
+                "isBuyAll": {
+                    "type": "boolean",
+                    "description": "是否买入所有，即为true是以目标币全部兑完为主,否则算部分成交,买完为止；为false则是以源币全部兑完为主,否则算部分成交，卖完为止"
+                },
+                "price": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "价格"
+                }
+            }
+        },
+        "ExchangeReq": {
+            "type": "object",
+            "properties": {
+                "srcCurrency": {
+                    "type": "string",
+                    "description": "源币"
+                },
+                "srcCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "源币数量"
+                },
+                "desCurrency": {
+                    "type": "string",
+                    "description": "目标币"
+                },
+                "desCount": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "目标币数量"
+                },
+                "isBuyAll": {
+                    "type": "boolean",
+                    "description": "买完：true；卖完：false"
+                }
+            }
+        }
+    }
+}
