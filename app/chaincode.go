@@ -45,22 +45,23 @@ func deploy() (err error) {
 }
 
 func createCurrency(currency string, count int64, user string) (txid string, err error) {
-	invoker, err := setCryptoClient(user, "")
-	if err != nil {
-		myLogger.Errorf("Failed getting invoker [%s]", err)
-		return
-	}
-	// invokerCert, err := invoker.GetTCertificateHandlerNext()
-	// if err != nil {
-	// 	myLogger.Errorf("Failed getting TCert [%s]", err)
-	// 	return
-	// }
 	myLogger.Debugf("Chaincode [create] args:[%s]-[%s],[%s]-[%s]", "currency", currency, "count", count)
 
 	// chaincodeInput := &pb.ChaincodeInput{Args: util.ToChaincodeArgs("createCurrency", currency, strconv.FormatInt(count, 10), base64.StdEncoding.EncodeToString(invokerCert.GetCertificate()))}
 	chaincodeInput := &pb.ChaincodeInput{Args: util.ToChaincodeArgs("create", currency, strconv.FormatInt(count, 10), user)}
 
 	if connPeer == "grpc" {
+		invoker, err := setCryptoClient(user, "")
+		if err != nil {
+			myLogger.Errorf("Failed getting invoker [%s]", err)
+			return "", err
+		}
+		// invokerCert, err := invoker.GetTCertificateHandlerNext()
+		// if err != nil {
+		// 	myLogger.Errorf("Failed getting TCert [%s]", err)
+		// 	return
+		// }
+
 		return invokeChaincodeGrpc(user, invoker, chaincodeInput)
 	}
 	return invokeChaincodeRest(user, chaincodeInput)
@@ -68,22 +69,23 @@ func createCurrency(currency string, count int64, user string) (txid string, err
 }
 
 func releaseCurrency(currency string, count int64, user string) (txid string, err error) {
-	invoker, err := setCryptoClient(user, "")
-	if err != nil {
-		myLogger.Errorf("Failed getting invoker [%s]", err)
-		return
-	}
-	// invokerCert, err := invoker.GetTCertificateHandlerNext()
-	// if err != nil {
-	// 	myLogger.Errorf("Failed getting TCert [%s]", err)
-	// 	return
-	// }
+
 	myLogger.Debugf("Chaincode [release] args:[%s]-[%s],[%s]-[%s]", "currency", currency, "count", count)
 
 	chaincodeInput := &pb.ChaincodeInput{Args: util.ToChaincodeArgs("release", currency, strconv.FormatInt(count, 10))}
 
 	// return invokeChaincodeSigma(invoker, invokerCert, chaincodeInput)
 	if connPeer == "grpc" {
+		invoker, err := setCryptoClient(user, "")
+		if err != nil {
+			myLogger.Errorf("Failed getting invoker [%s]", err)
+			return "", err
+		}
+		// invokerCert, err := invoker.GetTCertificateHandlerNext()
+		// if err != nil {
+		// 	myLogger.Errorf("Failed getting TCert [%s]", err)
+		// 	return
+		// }
 		return invokeChaincodeGrpc(user, invoker, chaincodeInput)
 	}
 	return invokeChaincodeRest(user, chaincodeInput)
@@ -91,22 +93,23 @@ func releaseCurrency(currency string, count int64, user string) (txid string, er
 }
 
 func assignCurrency(assigns string, user string) (txid string, err error) {
-	invoker, err := setCryptoClient(user, "")
-	if err != nil {
-		myLogger.Errorf("Failed getting invoker [%s]", err)
-		return
-	}
-	// invokerCert, err := invoker.GetTCertificateHandlerNext()
-	// if err != nil {
-	// 	myLogger.Errorf("Failed getting TCert [%s]", err)
-	// 	return
-	// }
+
 	myLogger.Debugf("Chaincode [assign] args:[%s]-[%s]", "assigns", assigns)
 
 	chaincodeInput := &pb.ChaincodeInput{Args: util.ToChaincodeArgs("assign", assigns)}
 
 	// return invokeChaincodeSigma(invoker, invokerCert, chaincodeInput)
 	if connPeer == "grpc" {
+		invoker, err := setCryptoClient(user, "")
+		if err != nil {
+			myLogger.Errorf("Failed getting invoker [%s]", err)
+			return "", err
+		}
+		// invokerCert, err := invoker.GetTCertificateHandlerNext()
+		// if err != nil {
+		// 	myLogger.Errorf("Failed getting TCert [%s]", err)
+		// 	return
+		// }
 		return invokeChaincodeGrpc(user, invoker, chaincodeInput)
 	}
 	return invokeChaincodeRest(user, chaincodeInput)
