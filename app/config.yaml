@@ -27,7 +27,7 @@ app:
         address:  0.0.0.0:7060
     
     adaptor:
-        address:  0.0.0.0:7061
+        address:  http://0.0.0.0:7061
 
      # TLS Settings for p2p communications
     tls:
