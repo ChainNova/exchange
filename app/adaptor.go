@@ -24,7 +24,7 @@ func deployChaincode(chaincode *Chaincode) (err error) {
 	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
-	err = json.Unmarshal(respBody, result)
+	err = json.Unmarshal(respBody, &result)
 	if err != nil {
 		myLogger.Errorf("Failed deploying [%s]", err)
 		return
@@ -60,7 +60,7 @@ func invokeChaincode(chaincode *Chaincode) (ret string, err error) {
 	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
-	err = json.Unmarshal(respBody, result)
+	err = json.Unmarshal(respBody, &result)
 	if err != nil {
 		myLogger.Errorf("Failed invoke [%s]", err)
 		return
@@ -95,7 +95,7 @@ func queryChaincode(chaincode *Chaincode) (ret string, err error) {
 	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
-	err = json.Unmarshal(respBody, result)
+	err = json.Unmarshal(respBody, &result)
 	if err != nil {
 		myLogger.Errorf("Failed query [%s]", err)
 		return
@@ -125,7 +125,7 @@ func login(user *pb.Secret) (err error) {
 	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
-	err = json.Unmarshal(respBody, result)
+	err = json.Unmarshal(respBody, &result)
 	if err != nil {
 		myLogger.Errorf("Failed login [%s]", err)
 		return
