@@ -110,9 +110,9 @@ func (a *Adaptor) Deploy(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	if chaincode.ID.Path == "" || chaincode.User.EnrollId == "" || chaincode.User.EnrollSecret == "" {
+	if chaincode.ID.Path == "" || chaincode.User.EnrollId == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode path, uesr name and secret for chaincode requests")})
+		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode path and uesr name  for chaincode requests")})
 		myLogger.Error("Client must supply a chaincode path, uesr name and secret for chaincode requests.")
 		return
 	}
@@ -167,9 +167,9 @@ func (a *Adaptor) Invoke(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	if chaincode.ID.Path == "" || chaincode.User.EnrollId == "" || chaincode.User.EnrollSecret == "" {
+	if chaincode.ID.Name == "" || chaincode.User.EnrollId == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode path, uesr name and secret for chaincode requests")})
+		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode name and uesr name for chaincode requests")})
 		myLogger.Error("Client must supply a chaincode path, uesr name and secret for chaincode requests.")
 		return
 	}
@@ -224,9 +224,9 @@ func (a *Adaptor) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	if chaincode.ID.Path == "" || chaincode.User.EnrollId == "" || chaincode.User.EnrollSecret == "" {
+	if chaincode.ID.Name == "" || chaincode.User.EnrollId == "" {
 		rw.WriteHeader(http.StatusBadRequest)
-		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode path, uesr name and secret for chaincode requests")})
+		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode name and uesr name for chaincode requests")})
 		myLogger.Error("Client must supply a chaincode path, uesr name and secret for chaincode requests.")
 		return
 	}
