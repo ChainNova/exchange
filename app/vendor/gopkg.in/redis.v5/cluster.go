@@ -1,7 +1,6 @@
 package redis
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -10,7 +9,6 @@ import (
 	"gopkg.in/redis.v5/internal"
 	"gopkg.in/redis.v5/internal/hashtag"
 	"gopkg.in/redis.v5/internal/pool"
-	"gopkg.in/redis.v5/internal/proto"
 )
 
 var errClusterNoNodes = internal.RedisError("redis: cluster has no nodes")
@@ -95,20 +93,16 @@ func newClusterNode(clOpt *ClusterOptions, addr string) *clusterNode {
 	}
 
 	if clOpt.RouteByLatency {
-		node.updateLatency()
+		const probes = 10
+		for i := 0; i < probes; i++ {
+			t1 := time.Now()
+			node.Client.Ping()
+			node.Latency += time.Since(t1)
+		}
+		node.Latency = node.Latency / probes
 	}
 
 	return &node
-}
-
-func (n *clusterNode) updateLatency() {
-	const probes = 10
-	for i := 0; i < probes; i++ {
-		start := time.Now()
-		n.Client.Ping()
-		n.Latency += time.Since(start)
-	}
-	n.Latency = n.Latency / probes
 }
 
 func (n *clusterNode) Loading() bool {
@@ -162,7 +156,7 @@ func (c *clusterNodes) All() ([]*clusterNode, error) {
 		return nil, pool.ErrClosed
 	}
 
-	nodes := make([]*clusterNode, 0, len(c.nodes))
+	var nodes []*clusterNode
 	for _, node := range c.nodes {
 		nodes = append(nodes, node)
 	}
@@ -214,7 +208,7 @@ func (c *clusterNodes) Random() (*clusterNode, error) {
 	}
 
 	var nodeErr error
-	for i := 0; i <= c.opt.MaxRedirects; i++ {
+	for i := 0; i < 10; i++ {
 		n := rand.Intn(len(addrs))
 		node, err := c.Get(addrs[n])
 		if err != nil {
@@ -262,10 +256,10 @@ func newClusterState(nodes *clusterNodes, slots []ClusterSlot) (*clusterState, e
 
 func (c *clusterState) slotMasterNode(slot int) (*clusterNode, error) {
 	nodes := c.slotNodes(slot)
-	if len(nodes) > 0 {
-		return nodes[0], nil
+	if len(nodes) == 0 {
+		return c.nodes.Random()
 	}
-	return c.nodes.Random()
+	return nodes[0], nil
 }
 
 func (c *clusterState) slotSlaveNode(slot int) (*clusterNode, error) {
@@ -294,8 +288,6 @@ func (c *clusterState) slotSlaveNode(slot int) (*clusterNode, error) {
 }
 
 func (c *clusterState) slotClosestNode(slot int) (*clusterNode, error) {
-	const threshold = time.Millisecond
-
 	nodes := c.slotNodes(slot)
 	if len(nodes) == 0 {
 		return c.nodes.Random()
@@ -303,10 +295,7 @@ func (c *clusterState) slotClosestNode(slot int) (*clusterNode, error) {
 
 	var node *clusterNode
 	for _, n := range nodes {
-		if n.Loading() {
-			continue
-		}
-		if node == nil || node.Latency-n.Latency > threshold {
+		if node == nil || n.Latency < node.Latency {
 			node = n
 		}
 	}
@@ -338,6 +327,8 @@ type ClusterClient struct {
 
 	closed bool
 }
+
+var _ Cmdable = (*ClusterClient)(nil)
 
 // NewClusterClient returns a Redis Cluster client as described in
 // http://redis.io/topics/cluster-spec.
@@ -373,16 +364,15 @@ func (c *ClusterClient) state() *clusterState {
 }
 
 func (c *ClusterClient) cmdSlotAndNode(state *clusterState, cmd Cmder) (int, *clusterNode, error) {
-	if state == nil {
-		node, err := c.nodes.Random()
-		return 0, node, err
-	}
-
-	cmdInfo := c.cmds[cmd.name()]
+	cmdInfo := c.cmds[cmd.arg(0)]
 	firstKey := cmd.arg(cmdFirstKeyPos(cmd, cmdInfo))
+	if firstKey == "" {
+		node, err := c.nodes.Random()
+		return -1, node, err
+	}
 	slot := hashtag.Slot(firstKey)
 
-	if cmdInfo != nil && cmdInfo.ReadOnly && c.opt.ReadOnly {
+	if cmdInfo.ReadOnly && c.opt.ReadOnly {
 		if c.opt.RouteByLatency {
 			node, err := state.slotClosestNode(slot)
 			return slot, node, err
@@ -397,13 +387,7 @@ func (c *ClusterClient) cmdSlotAndNode(state *clusterState, cmd Cmder) (int, *cl
 }
 
 func (c *ClusterClient) Watch(fn func(*Tx) error, keys ...string) error {
-	var node *clusterNode
-	var err error
-	if len(keys) > 0 {
-		node, err = c.state().slotMasterNode(hashtag.Slot(keys[0]))
-	} else {
-		node, err = c.nodes.Random()
-	}
+	node, err := c.state().slotMasterNode(hashtag.Slot(keys[0]))
 	if err != nil {
 		return err
 	}
@@ -427,6 +411,10 @@ func (c *ClusterClient) Process(cmd Cmder) error {
 
 	var ask bool
 	for attempt := 0; attempt <= c.opt.MaxRedirects; attempt++ {
+		if attempt > 0 {
+			cmd.reset()
+		}
+
 		if ask {
 			pipe := node.Client.Pipeline()
 			pipe.Process(NewCmd("ASKING"))
@@ -452,10 +440,6 @@ func (c *ClusterClient) Process(cmd Cmder) error {
 		// On network errors try random node.
 		if internal.IsRetryableError(err) {
 			node, err = c.nodes.Random()
-			if err != nil {
-				cmd.setErr(err)
-				return err
-			}
 			continue
 		}
 
@@ -483,39 +467,6 @@ func (c *ClusterClient) Process(cmd Cmder) error {
 	}
 
 	return cmd.Err()
-}
-
-// ForEachNode concurrently calls the fn on each ever known node in the cluster.
-// It returns the first error if any.
-func (c *ClusterClient) ForEachNode(fn func(client *Client) error) error {
-	nodes, err := c.nodes.All()
-	if err != nil {
-		return err
-	}
-
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
-	for _, node := range nodes {
-		wg.Add(1)
-		go func(node *clusterNode) {
-			defer wg.Done()
-			err := fn(node.Client)
-			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-			}
-		}(node)
-	}
-	wg.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
 }
 
 // ForEachMaster concurrently calls the fn on each master node in the cluster.
@@ -661,253 +612,101 @@ func (c *ClusterClient) Pipelined(fn func(*Pipeline) error) ([]Cmder, error) {
 }
 
 func (c *ClusterClient) pipelineExec(cmds []Cmder) error {
-	cmdsMap, err := c.mapCmdsByNode(cmds)
-	if err != nil {
-		return err
+	var retErr error
+	setRetErr := func(err error) {
+		if retErr == nil {
+			retErr = err
+		}
 	}
 
-	for i := 0; i <= c.opt.MaxRedirects; i++ {
+	state := c.state()
+	cmdsMap := make(map[*clusterNode][]Cmder)
+	for _, cmd := range cmds {
+		_, node, err := c.cmdSlotAndNode(state, cmd)
+		if err != nil {
+			cmd.setErr(err)
+			setRetErr(err)
+			continue
+		}
+		cmdsMap[node] = append(cmdsMap[node], cmd)
+	}
+
+	for attempt := 0; attempt <= c.opt.MaxRedirects; attempt++ {
 		failedCmds := make(map[*clusterNode][]Cmder)
 
 		for node, cmds := range cmdsMap {
 			cn, _, err := node.Client.conn()
 			if err != nil {
 				setCmdsErr(cmds, err)
+				setRetErr(err)
 				continue
 			}
 
-			err = c.pipelineProcessCmds(cn, cmds, failedCmds)
+			failedCmds, err = c.execClusterCmds(cn, cmds, failedCmds)
+			if err != nil {
+				setRetErr(err)
+			}
 			node.Client.putConn(cn, err, false)
 		}
 
-		if len(failedCmds) == 0 {
-			break
-		}
 		cmdsMap = failedCmds
 	}
 
-	var firstErr error
-	for _, cmd := range cmds {
-		if err := cmd.Err(); err != nil {
-			firstErr = err
-			break
-		}
-	}
-	return firstErr
+	return retErr
 }
 
-func (c *ClusterClient) mapCmdsByNode(cmds []Cmder) (map[*clusterNode][]Cmder, error) {
-	state := c.state()
-	cmdsMap := make(map[*clusterNode][]Cmder)
-	for _, cmd := range cmds {
-		_, node, err := c.cmdSlotAndNode(state, cmd)
-		if err != nil {
-			return nil, err
-		}
-		cmdsMap[node] = append(cmdsMap[node], cmd)
-	}
-	return cmdsMap, nil
-}
-
-func (c *ClusterClient) pipelineProcessCmds(
+func (c *ClusterClient) execClusterCmds(
 	cn *pool.Conn, cmds []Cmder, failedCmds map[*clusterNode][]Cmder,
-) error {
-	cn.SetWriteTimeout(c.opt.WriteTimeout)
+) (map[*clusterNode][]Cmder, error) {
 	if err := writeCmd(cn, cmds...); err != nil {
 		setCmdsErr(cmds, err)
-		return err
+		return failedCmds, err
 	}
 
-	// Set read timeout for all commands.
-	cn.SetReadTimeout(c.opt.ReadTimeout)
+	var retErr error
+	setRetErr := func(err error) {
+		if retErr == nil {
+			retErr = err
+		}
+	}
 
-	return c.pipelineReadCmds(cn, cmds, failedCmds)
-}
-
-func (c *ClusterClient) pipelineReadCmds(
-	cn *pool.Conn, cmds []Cmder, failedCmds map[*clusterNode][]Cmder,
-) error {
-	var firstErr error
-	for _, cmd := range cmds {
+	for i, cmd := range cmds {
 		err := cmd.readReply(cn)
 		if err == nil {
 			continue
 		}
 
-		if firstErr == nil {
-			firstErr = err
-		}
-
-		err = c.checkMovedErr(cmd, failedCmds)
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
-}
-
-func (c *ClusterClient) checkMovedErr(cmd Cmder, failedCmds map[*clusterNode][]Cmder) error {
-	moved, ask, addr := internal.IsMovedError(cmd.Err())
-	if moved {
-		c.lazyReloadSlots()
-
-		node, err := c.nodes.Get(addr)
-		if err != nil {
-			return err
-		}
-
-		failedCmds[node] = append(failedCmds[node], cmd)
-	}
-	if ask {
-		node, err := c.nodes.Get(addr)
-		if err != nil {
-			return err
-		}
-
-		failedCmds[node] = append(failedCmds[node], NewCmd("ASKING"), cmd)
-	}
-	return nil
-}
-
-// TxPipeline acts like Pipeline, but wraps queued commands with MULTI/EXEC.
-func (c *ClusterClient) TxPipeline() *Pipeline {
-	pipe := Pipeline{
-		exec: c.txPipelineExec,
-	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
-	return &pipe
-}
-
-func (c *ClusterClient) TxPipelined(fn func(*Pipeline) error) ([]Cmder, error) {
-	return c.Pipeline().pipelined(fn)
-}
-
-func (c *ClusterClient) txPipelineExec(cmds []Cmder) error {
-	cmdsMap, err := c.mapCmdsBySlot(cmds)
-	if err != nil {
-		return err
-	}
-
-	for slot, cmds := range cmdsMap {
-		node, err := c.state().slotMasterNode(slot)
-		if err != nil {
-			setCmdsErr(cmds, err)
-			continue
-		}
-
-		cmdsMap := map[*clusterNode][]Cmder{node: cmds}
-		for i := 0; i <= c.opt.MaxRedirects; i++ {
-			failedCmds := make(map[*clusterNode][]Cmder)
-
-			for node, cmds := range cmdsMap {
-				cn, _, err := node.Client.conn()
-				if err != nil {
-					setCmdsErr(cmds, err)
-					continue
-				}
-
-				err = c.txPipelineProcessCmds(node, cn, cmds, failedCmds)
-				node.Client.putConn(cn, err, false)
-			}
-
-			if len(failedCmds) == 0 {
-				break
-			}
-			cmdsMap = failedCmds
-		}
-	}
-
-	var firstErr error
-	for _, cmd := range cmds {
-		if err := cmd.Err(); err != nil {
-			firstErr = err
+		if i == 0 && internal.IsNetworkError(err) {
+			cmd.reset()
+			failedCmds[nil] = append(failedCmds[nil], cmds...)
 			break
 		}
-	}
-	return firstErr
-}
 
-func (c *ClusterClient) mapCmdsBySlot(cmds []Cmder) (map[int][]Cmder, error) {
-	state := c.state()
-	cmdsMap := make(map[int][]Cmder)
-	for _, cmd := range cmds {
-		slot, _, err := c.cmdSlotAndNode(state, cmd)
-		if err != nil {
-			return nil, err
-		}
-		cmdsMap[slot] = append(cmdsMap[slot], cmd)
-	}
-	return cmdsMap, nil
-}
+		moved, ask, addr := internal.IsMovedError(err)
+		if moved {
+			c.lazyReloadSlots()
 
-func (c *ClusterClient) txPipelineProcessCmds(
-	node *clusterNode, cn *pool.Conn, cmds []Cmder, failedCmds map[*clusterNode][]Cmder,
-) error {
-	cn.SetWriteTimeout(c.opt.WriteTimeout)
-	if err := txPipelineWriteMulti(cn, cmds); err != nil {
-		setCmdsErr(cmds, err)
-		failedCmds[node] = cmds
-		return err
-	}
+			node, err := c.nodes.Get(addr)
+			if err != nil {
+				setRetErr(err)
+				continue
+			}
 
-	// Set read timeout for all commands.
-	cn.SetReadTimeout(c.opt.ReadTimeout)
+			cmd.reset()
+			failedCmds[node] = append(failedCmds[node], cmd)
+		} else if ask {
+			node, err := c.nodes.Get(addr)
+			if err != nil {
+				setRetErr(err)
+				continue
+			}
 
-	if err := c.txPipelineReadQueued(cn, cmds, failedCmds); err != nil {
-		return err
-	}
-
-	_, err := pipelineReadCmds(cn, cmds)
-	return err
-}
-
-func (c *ClusterClient) txPipelineReadQueued(
-	cn *pool.Conn, cmds []Cmder, failedCmds map[*clusterNode][]Cmder,
-) error {
-	var firstErr error
-
-	// Parse queued replies.
-	var statusCmd StatusCmd
-	if err := statusCmd.readReply(cn); err != nil && firstErr == nil {
-		firstErr = err
-	}
-
-	for _, cmd := range cmds {
-		err := statusCmd.readReply(cn)
-		if err == nil {
-			continue
-		}
-
-		cmd.setErr(err)
-		if firstErr == nil {
-			firstErr = err
-		}
-
-		err = c.checkMovedErr(cmd, failedCmds)
-		if err != nil && firstErr == nil {
-			firstErr = err
+			cmd.reset()
+			failedCmds[node] = append(failedCmds[node], NewCmd("ASKING"), cmd)
+		} else {
+			setRetErr(err)
 		}
 	}
 
-	// Parse number of replies.
-	line, err := cn.Rd.ReadLine()
-	if err != nil {
-		if err == Nil {
-			err = TxFailedErr
-		}
-		return err
-	}
-
-	switch line[0] {
-	case proto.ErrorReply:
-		return proto.ParseErrorReply(line)
-	case proto.ArrayReply:
-		// ok
-	default:
-		err := fmt.Errorf("redis: expected '*', but got line %q", line)
-		return err
-	}
-
-	return firstErr
+	return failedCmds, retErr
 }

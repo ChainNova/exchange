@@ -3,11 +3,9 @@ package redis // import "gopkg.in/redis.v5"
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"gopkg.in/redis.v5/internal"
 	"gopkg.in/redis.v5/internal/pool"
-	"gopkg.in/redis.v5/internal/proto"
 )
 
 // Redis nil reply, .e.g. when key does not exist.
@@ -15,6 +13,14 @@ const Nil = internal.Nil
 
 func SetLogger(logger *log.Logger) {
 	internal.Logger = logger
+}
+
+type baseClient struct {
+	connPool pool.Pooler
+	opt      *Options
+
+	process func(Cmder) error
+	onClose func() error // hook called when client is closed
 }
 
 func (c *baseClient) String() string {
@@ -89,13 +95,24 @@ func (c *baseClient) WrapProcess(fn func(oldProcess func(cmd Cmder) error) func(
 
 func (c *baseClient) defaultProcess(cmd Cmder) error {
 	for i := 0; i <= c.opt.MaxRetries; i++ {
+		if i > 0 {
+			cmd.reset()
+		}
+
 		cn, _, err := c.conn()
 		if err != nil {
 			cmd.setErr(err)
 			return err
 		}
 
-		cn.SetWriteTimeout(c.opt.WriteTimeout)
+		readTimeout := cmd.readTimeout()
+		if readTimeout != nil {
+			cn.ReadTimeout = *readTimeout
+		} else {
+			cn.ReadTimeout = c.opt.ReadTimeout
+		}
+		cn.WriteTimeout = c.opt.WriteTimeout
+
 		if err := writeCmd(cn, cmd); err != nil {
 			c.putConn(cn, err, false)
 			cmd.setErr(err)
@@ -105,9 +122,8 @@ func (c *baseClient) defaultProcess(cmd Cmder) error {
 			return err
 		}
 
-		cn.SetReadTimeout(c.cmdTimeout(cmd))
 		err = cmd.readReply(cn)
-		c.putConn(cn, err, false)
+		c.putConn(cn, err, readTimeout != nil)
 		if err != nil && internal.IsRetryableError(err) {
 			continue
 		}
@@ -116,14 +132,6 @@ func (c *baseClient) defaultProcess(cmd Cmder) error {
 	}
 
 	return cmd.Err()
-}
-
-func (c *baseClient) cmdTimeout(cmd Cmder) time.Duration {
-	if timeout := cmd.readTimeout(); timeout != nil {
-		return *timeout
-	} else {
-		return c.opt.ReadTimeout
-	}
 }
 
 func (c *baseClient) closed() bool {
@@ -135,143 +143,20 @@ func (c *baseClient) closed() bool {
 // It is rare to Close a Client, as the Client is meant to be
 // long-lived and shared between many goroutines.
 func (c *baseClient) Close() error {
-	var firstErr error
+	var retErr error
 	if c.onClose != nil {
-		if err := c.onClose(); err != nil && firstErr == nil {
-			firstErr = err
+		if err := c.onClose(); err != nil && retErr == nil {
+			retErr = err
 		}
 	}
-	if err := c.connPool.Close(); err != nil && firstErr == nil {
-		firstErr = err
+	if err := c.connPool.Close(); err != nil && retErr == nil {
+		retErr = err
 	}
-	return firstErr
+	return retErr
 }
 
 func (c *baseClient) getAddr() string {
 	return c.opt.Addr
-}
-
-type pipelineProcessor func(*pool.Conn, []Cmder) (bool, error)
-
-func (c *baseClient) pipelineExecer(p pipelineProcessor) pipelineExecer {
-	return func(cmds []Cmder) error {
-		var firstErr error
-		for i := 0; i <= c.opt.MaxRetries; i++ {
-			cn, _, err := c.conn()
-			if err != nil {
-				setCmdsErr(cmds, err)
-				return err
-			}
-
-			canRetry, err := p(cn, cmds)
-			c.putConn(cn, err, false)
-			if err == nil {
-				return nil
-			}
-			if firstErr == nil {
-				firstErr = err
-			}
-			if !canRetry || !internal.IsRetryableError(err) {
-				break
-			}
-		}
-		return firstErr
-	}
-}
-
-func (c *baseClient) pipelineProcessCmds(cn *pool.Conn, cmds []Cmder) (retry bool, firstErr error) {
-	cn.SetWriteTimeout(c.opt.WriteTimeout)
-	if err := writeCmd(cn, cmds...); err != nil {
-		setCmdsErr(cmds, err)
-		return true, err
-	}
-
-	// Set read timeout for all commands.
-	cn.SetReadTimeout(c.opt.ReadTimeout)
-	return pipelineReadCmds(cn, cmds)
-}
-
-func pipelineReadCmds(cn *pool.Conn, cmds []Cmder) (retry bool, firstErr error) {
-	for i, cmd := range cmds {
-		err := cmd.readReply(cn)
-		if err == nil {
-			continue
-		}
-		if i == 0 {
-			retry = true
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	return false, firstErr
-}
-
-func (c *baseClient) txPipelineProcessCmds(cn *pool.Conn, cmds []Cmder) (bool, error) {
-	cn.SetWriteTimeout(c.opt.WriteTimeout)
-	if err := txPipelineWriteMulti(cn, cmds); err != nil {
-		setCmdsErr(cmds, err)
-		return true, err
-	}
-
-	// Set read timeout for all commands.
-	cn.SetReadTimeout(c.opt.ReadTimeout)
-
-	if err := c.txPipelineReadQueued(cn, cmds); err != nil {
-		return false, err
-	}
-
-	_, err := pipelineReadCmds(cn, cmds)
-	return false, err
-}
-
-func txPipelineWriteMulti(cn *pool.Conn, cmds []Cmder) error {
-	multiExec := make([]Cmder, 0, len(cmds)+2)
-	multiExec = append(multiExec, NewStatusCmd("MULTI"))
-	multiExec = append(multiExec, cmds...)
-	multiExec = append(multiExec, NewSliceCmd("EXEC"))
-	return writeCmd(cn, multiExec...)
-}
-
-func (c *baseClient) txPipelineReadQueued(cn *pool.Conn, cmds []Cmder) error {
-	var firstErr error
-
-	// Parse queued replies.
-	var statusCmd StatusCmd
-	if err := statusCmd.readReply(cn); err != nil && firstErr == nil {
-		firstErr = err
-	}
-
-	for _, cmd := range cmds {
-		err := statusCmd.readReply(cn)
-		if err != nil {
-			cmd.setErr(err)
-			if firstErr == nil {
-				firstErr = err
-			}
-		}
-	}
-
-	// Parse number of replies.
-	line, err := cn.Rd.ReadLine()
-	if err != nil {
-		if err == Nil {
-			err = TxFailedErr
-		}
-		return err
-	}
-
-	switch line[0] {
-	case proto.ErrorReply:
-		return proto.ParseErrorReply(line)
-	case proto.ArrayReply:
-		// ok
-	default:
-		err := fmt.Errorf("redis: expected '*', but got line %q", line)
-		return err
-	}
-
-	return nil
 }
 
 //------------------------------------------------------------------------------
@@ -284,28 +169,21 @@ type Client struct {
 	cmdable
 }
 
+var _ Cmdable = (*Client)(nil)
+
 func newClient(opt *Options, pool pool.Pooler) *Client {
-	client := Client{
-		baseClient: baseClient{
-			opt:      opt,
-			connPool: pool,
-		},
+	base := baseClient{opt: opt, connPool: pool}
+	client := &Client{
+		baseClient: base,
+		cmdable:    cmdable{base.Process},
 	}
-	client.cmdable.process = client.Process
-	return &client
+	return client
 }
 
 // NewClient returns a client to the Redis Server specified by Options.
 func NewClient(opt *Options) *Client {
 	opt.init()
 	return newClient(opt, newConnPool(opt))
-}
-
-func (c *Client) copy() *Client {
-	c2 := new(Client)
-	*c2 = *c
-	c2.cmdable.process = c2.Process
-	return c2
 }
 
 // PoolStats returns connection pool stats.
@@ -321,31 +199,45 @@ func (c *Client) PoolStats() *PoolStats {
 	}
 }
 
+func (c *Client) Pipeline() *Pipeline {
+	pipe := Pipeline{
+		exec: c.pipelineExec,
+	}
+	pipe.cmdable.process = pipe.Process
+	pipe.statefulCmdable.process = pipe.Process
+	return &pipe
+}
+
 func (c *Client) Pipelined(fn func(*Pipeline) error) ([]Cmder, error) {
 	return c.Pipeline().pipelined(fn)
 }
 
-func (c *Client) Pipeline() *Pipeline {
-	pipe := Pipeline{
-		exec: c.pipelineExecer(c.pipelineProcessCmds),
-	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
-	return &pipe
-}
+func (c *Client) pipelineExec(cmds []Cmder) error {
+	var firstErr error
+	for i := 0; i <= c.opt.MaxRetries; i++ {
+		if i > 0 {
+			resetCmds(cmds)
+		}
 
-func (c *Client) TxPipelined(fn func(*Pipeline) error) ([]Cmder, error) {
-	return c.TxPipeline().pipelined(fn)
-}
+		cn, _, err := c.conn()
+		if err != nil {
+			setCmdsErr(cmds, err)
+			return err
+		}
 
-// TxPipeline acts like Pipeline, but wraps queued commands with MULTI/EXEC.
-func (c *Client) TxPipeline() *Pipeline {
-	pipe := Pipeline{
-		exec: c.pipelineExecer(c.txPipelineProcessCmds),
+		retry, err := execCmds(cn, cmds)
+		c.putConn(cn, err, false)
+		if err == nil {
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+		if !retry {
+			break
+		}
 	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
-	return &pipe
+	return firstErr
 }
 
 func (c *Client) pubSub() *PubSub {
@@ -360,23 +252,11 @@ func (c *Client) pubSub() *PubSub {
 // Subscribe subscribes the client to the specified channels.
 func (c *Client) Subscribe(channels ...string) (*PubSub, error) {
 	pubsub := c.pubSub()
-	if len(channels) > 0 {
-		if err := pubsub.Subscribe(channels...); err != nil {
-			pubsub.Close()
-			return nil, err
-		}
-	}
-	return pubsub, nil
+	return pubsub, pubsub.Subscribe(channels...)
 }
 
 // PSubscribe subscribes the client to the given patterns.
 func (c *Client) PSubscribe(channels ...string) (*PubSub, error) {
 	pubsub := c.pubSub()
-	if len(channels) > 0 {
-		if err := pubsub.PSubscribe(channels...); err != nil {
-			pubsub.Close()
-			return nil, err
-		}
-	}
-	return pubsub, nil
+	return pubsub, pubsub.PSubscribe(channels...)
 }

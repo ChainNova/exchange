@@ -2,18 +2,30 @@ package redis
 
 import "sync"
 
+type Scanner struct {
+	client *cmdable
+	*ScanCmd
+}
+
+// Iterator creates a new ScanIterator.
+func (s Scanner) Iterator() *ScanIterator {
+	return &ScanIterator{
+		Scanner: s,
+	}
+}
+
 // ScanIterator is used to incrementally iterate over a collection of elements.
 // It's safe for concurrent use by multiple goroutines.
 type ScanIterator struct {
-	mu  sync.Mutex // protects Scanner and pos
-	cmd *ScanCmd
+	mu sync.Mutex // protects Scanner and pos
+	Scanner
 	pos int
 }
 
 // Err returns the last iterator error, if any.
 func (it *ScanIterator) Err() error {
 	it.mu.Lock()
-	err := it.cmd.Err()
+	err := it.ScanCmd.Err()
 	it.mu.Unlock()
 	return err
 }
@@ -24,38 +36,38 @@ func (it *ScanIterator) Next() bool {
 	defer it.mu.Unlock()
 
 	// Instantly return on errors.
-	if it.cmd.Err() != nil {
+	if it.ScanCmd.Err() != nil {
 		return false
 	}
 
 	// Advance cursor, check if we are still within range.
-	if it.pos < len(it.cmd.page) {
+	if it.pos < len(it.ScanCmd.page) {
 		it.pos++
 		return true
 	}
 
 	for {
 		// Return if there is no more data to fetch.
-		if it.cmd.cursor == 0 {
+		if it.ScanCmd.cursor == 0 {
 			return false
 		}
 
 		// Fetch next page.
-		if it.cmd._args[0] == "scan" {
-			it.cmd._args[1] = it.cmd.cursor
+		if it.ScanCmd._args[0] == "scan" {
+			it.ScanCmd._args[1] = it.ScanCmd.cursor
 		} else {
-			it.cmd._args[2] = it.cmd.cursor
+			it.ScanCmd._args[2] = it.ScanCmd.cursor
 		}
-
-		err := it.cmd.process(it.cmd)
-		if err != nil {
+		it.ScanCmd.reset()
+		it.client.process(it.ScanCmd)
+		if it.ScanCmd.Err() != nil {
 			return false
 		}
 
 		it.pos = 1
 
-		// Redis can occasionally return empty page.
-		if len(it.cmd.page) > 0 {
+		// Redis can occasionally return empty page
+		if len(it.ScanCmd.page) > 0 {
 			return true
 		}
 	}
@@ -65,8 +77,8 @@ func (it *ScanIterator) Next() bool {
 func (it *ScanIterator) Val() string {
 	var v string
 	it.mu.Lock()
-	if it.cmd.Err() == nil && it.pos > 0 && it.pos <= len(it.cmd.page) {
-		v = it.cmd.page[it.pos-1]
+	if it.ScanCmd.Err() == nil && it.pos > 0 && it.pos <= len(it.ScanCmd.page) {
+		v = it.ScanCmd.page[it.pos-1]
 	}
 	it.mu.Unlock()
 	return v

@@ -47,7 +47,6 @@ type Cmdable interface {
 	Ping() *StatusCmd
 	Quit() *StatusCmd
 	Del(keys ...string) *IntCmd
-	Unlink(keys ...string) *IntCmd
 	Dump(key string) *StringCmd
 	Exists(key string) *BoolCmd
 	Expire(key string, expiration time.Duration) *BoolCmd
@@ -71,10 +70,10 @@ type Cmdable interface {
 	SortInterfaces(key string, sort Sort) *SliceCmd
 	TTL(key string) *DurationCmd
 	Type(key string) *StatusCmd
-	Scan(cursor uint64, match string, count int64) *ScanCmd
-	SScan(key string, cursor uint64, match string, count int64) *ScanCmd
-	HScan(key string, cursor uint64, match string, count int64) *ScanCmd
-	ZScan(key string, cursor uint64, match string, count int64) *ScanCmd
+	Scan(cursor uint64, match string, count int64) Scanner
+	SScan(key string, cursor uint64, match string, count int64) Scanner
+	HScan(key string, cursor uint64, match string, count int64) Scanner
+	ZScan(key string, cursor uint64, match string, count int64) Scanner
 	Append(key, value string) *IntCmd
 	BitCount(key string, bitCount *BitCount) *IntCmd
 	BitOpAnd(destKey string, keys ...string) *IntCmd
@@ -110,8 +109,8 @@ type Cmdable interface {
 	HLen(key string) *IntCmd
 	HMGet(key string, fields ...string) *SliceCmd
 	HMSet(key string, fields map[string]string) *StatusCmd
-	HSet(key, field string, value interface{}) *BoolCmd
-	HSetNX(key, field string, value interface{}) *BoolCmd
+	HSet(key, field, value string) *BoolCmd
+	HSetNX(key, field, value string) *BoolCmd
 	HVals(key string) *StringSliceCmd
 	BLPop(timeout time.Duration, keys ...string) *StringSliceCmd
 	BRPop(timeout time.Duration, keys ...string) *StringSliceCmd
@@ -237,11 +236,6 @@ type Cmdable interface {
 	Command() *CommandsInfoCmd
 }
 
-var _ Cmdable = (*Client)(nil)
-var _ Cmdable = (*Tx)(nil)
-var _ Cmdable = (*Ring)(nil)
-var _ Cmdable = (*ClusterClient)(nil)
-
 type cmdable struct {
 	process func(cmd Cmder) error
 }
@@ -285,17 +279,6 @@ func (c *statefulCmdable) Select(index int) *StatusCmd {
 func (c *cmdable) Del(keys ...string) *IntCmd {
 	args := make([]interface{}, 1+len(keys))
 	args[0] = "del"
-	for i, key := range keys {
-		args[1+i] = key
-	}
-	cmd := NewIntCmd(args...)
-	c.process(cmd)
-	return cmd
-}
-
-func (c *cmdable) Unlink(keys ...string) *IntCmd {
-	args := make([]interface{}, 1+len(keys))
-	args[0] = "unlink"
 	for i, key := range keys {
 		args[1+i] = key
 	}
@@ -515,7 +498,7 @@ func (c *cmdable) Type(key string) *StatusCmd {
 	return cmd
 }
 
-func (c *cmdable) Scan(cursor uint64, match string, count int64) *ScanCmd {
+func (c *cmdable) Scan(cursor uint64, match string, count int64) Scanner {
 	args := []interface{}{"scan", cursor}
 	if match != "" {
 		args = append(args, "match", match)
@@ -523,12 +506,15 @@ func (c *cmdable) Scan(cursor uint64, match string, count int64) *ScanCmd {
 	if count > 0 {
 		args = append(args, "count", count)
 	}
-	cmd := NewScanCmd(c.process, args...)
+	cmd := NewScanCmd(args...)
 	c.process(cmd)
-	return cmd
+	return Scanner{
+		client:  c,
+		ScanCmd: cmd,
+	}
 }
 
-func (c *cmdable) SScan(key string, cursor uint64, match string, count int64) *ScanCmd {
+func (c *cmdable) SScan(key string, cursor uint64, match string, count int64) Scanner {
 	args := []interface{}{"sscan", key, cursor}
 	if match != "" {
 		args = append(args, "match", match)
@@ -536,12 +522,15 @@ func (c *cmdable) SScan(key string, cursor uint64, match string, count int64) *S
 	if count > 0 {
 		args = append(args, "count", count)
 	}
-	cmd := NewScanCmd(c.process, args...)
+	cmd := NewScanCmd(args...)
 	c.process(cmd)
-	return cmd
+	return Scanner{
+		client:  c,
+		ScanCmd: cmd,
+	}
 }
 
-func (c *cmdable) HScan(key string, cursor uint64, match string, count int64) *ScanCmd {
+func (c *cmdable) HScan(key string, cursor uint64, match string, count int64) Scanner {
 	args := []interface{}{"hscan", key, cursor}
 	if match != "" {
 		args = append(args, "match", match)
@@ -549,12 +538,15 @@ func (c *cmdable) HScan(key string, cursor uint64, match string, count int64) *S
 	if count > 0 {
 		args = append(args, "count", count)
 	}
-	cmd := NewScanCmd(c.process, args...)
+	cmd := NewScanCmd(args...)
 	c.process(cmd)
-	return cmd
+	return Scanner{
+		client:  c,
+		ScanCmd: cmd,
+	}
 }
 
-func (c *cmdable) ZScan(key string, cursor uint64, match string, count int64) *ScanCmd {
+func (c *cmdable) ZScan(key string, cursor uint64, match string, count int64) Scanner {
 	args := []interface{}{"zscan", key, cursor}
 	if match != "" {
 		args = append(args, "match", match)
@@ -562,9 +554,12 @@ func (c *cmdable) ZScan(key string, cursor uint64, match string, count int64) *S
 	if count > 0 {
 		args = append(args, "count", count)
 	}
-	cmd := NewScanCmd(c.process, args...)
+	cmd := NewScanCmd(args...)
 	c.process(cmd)
-	return cmd
+	return Scanner{
+		client:  c,
+		ScanCmd: cmd,
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -892,13 +887,13 @@ func (c *cmdable) HMSet(key string, fields map[string]string) *StatusCmd {
 	return cmd
 }
 
-func (c *cmdable) HSet(key, field string, value interface{}) *BoolCmd {
+func (c *cmdable) HSet(key, field, value string) *BoolCmd {
 	cmd := NewBoolCmd("hset", key, field, value)
 	c.process(cmd)
 	return cmd
 }
 
-func (c *cmdable) HSetNX(key, field string, value interface{}) *BoolCmd {
+func (c *cmdable) HSetNX(key, field, value string) *BoolCmd {
 	cmd := NewBoolCmd("hsetnx", key, field, value)
 	c.process(cmd)
 	return cmd

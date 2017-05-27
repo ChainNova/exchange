@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gopkg.in/bsm/ratelimit.v1"
+
 	"gopkg.in/redis.v5/internal"
 )
 
@@ -47,8 +49,9 @@ type Pooler interface {
 type dialer func() (net.Conn, error)
 
 type ConnPool struct {
-	dial    dialer
-	OnClose func(*Conn) error
+	_dial       dialer
+	DialLimiter *ratelimit.RateLimiter
+	OnClose     func(*Conn) error
 
 	poolTimeout time.Duration
 	idleTimeout time.Duration
@@ -71,7 +74,8 @@ var _ Pooler = (*ConnPool)(nil)
 
 func NewConnPool(dial dialer, poolSize int, poolTimeout, idleTimeout, idleCheckFrequency time.Duration) *ConnPool {
 	p := &ConnPool{
-		dial: dial,
+		_dial:       dial,
+		DialLimiter: ratelimit.New(3*poolSize, time.Second),
 
 		poolTimeout: poolTimeout,
 		idleTimeout: idleTimeout,
@@ -84,6 +88,23 @@ func NewConnPool(dial dialer, poolSize int, poolTimeout, idleTimeout, idleCheckF
 		go p.reaper(idleCheckFrequency)
 	}
 	return p
+}
+
+func (p *ConnPool) dial() (net.Conn, error) {
+	if p.DialLimiter != nil && p.DialLimiter.Limit() {
+		err := fmt.Errorf(
+			"redis: you open connections too fast (last_error=%q)",
+			p.loadLastErr(),
+		)
+		return nil, err
+	}
+
+	cn, err := p._dial()
+	if err != nil {
+		p.storeLastErr(err.Error())
+		return nil, err
+	}
+	return cn, nil
 }
 
 func (p *ConnPool) NewConn() (*Conn, error) {
@@ -245,19 +266,19 @@ func (p *ConnPool) Closed() bool {
 	return atomic.LoadInt32(&p._closed) == 1
 }
 
-func (p *ConnPool) Close() error {
+func (p *ConnPool) Close() (retErr error) {
 	if !atomic.CompareAndSwapInt32(&p._closed, 0, 1) {
 		return ErrClosed
 	}
 
 	p.connsMu.Lock()
-	var firstErr error
+	// Close all connections.
 	for _, cn := range p.conns {
 		if cn == nil {
 			continue
 		}
-		if err := p.closeConn(cn, ErrClosed); err != nil && firstErr == nil {
-			firstErr = err
+		if err := p.closeConn(cn, ErrClosed); err != nil && retErr == nil {
+			retErr = err
 		}
 	}
 	p.conns = nil
@@ -267,10 +288,11 @@ func (p *ConnPool) Close() error {
 	p.freeConns = nil
 	p.freeConnsMu.Unlock()
 
-	return firstErr
+	return retErr
 }
 
 func (p *ConnPool) closeConn(cn *Conn, reason error) error {
+	p.storeLastErr(reason.Error())
 	if p.OnClose != nil {
 		_ = p.OnClose(cn)
 	}
@@ -332,6 +354,17 @@ func (p *ConnPool) reaper(frequency time.Duration) {
 			n, s.TotalConns, s.FreeConns, s.Requests, s.Hits, s.Timeouts,
 		)
 	}
+}
+
+func (p *ConnPool) storeLastErr(err string) {
+	p.lastErr.Store(err)
+}
+
+func (p *ConnPool) loadLastErr() string {
+	if v := p.lastErr.Load(); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
 //------------------------------------------------------------------------------

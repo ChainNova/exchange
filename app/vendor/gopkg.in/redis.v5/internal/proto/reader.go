@@ -70,11 +70,11 @@ func (p *Reader) ReadReply(m MultiBulkParse) (interface{}, error) {
 
 	switch line[0] {
 	case ErrorReply:
-		return nil, ParseErrorReply(line)
+		return nil, parseErrorValue(line)
 	case StatusReply:
 		return parseStatusValue(line)
 	case IntReply:
-		return parseInt(line[1:], 10, 64)
+		return parseIntValue(line)
 	case StringReply:
 		return p.readBytesValue(line)
 	case ArrayReply:
@@ -94,22 +94,22 @@ func (p *Reader) ReadIntReply() (int64, error) {
 	}
 	switch line[0] {
 	case ErrorReply:
-		return 0, ParseErrorReply(line)
+		return 0, parseErrorValue(line)
 	case IntReply:
-		return parseInt(line[1:], 10, 64)
+		return parseIntValue(line)
 	default:
 		return 0, fmt.Errorf("redis: can't parse int reply: %.100q", line)
 	}
 }
 
-func (p *Reader) ReadTmpBytesReply() ([]byte, error) {
+func (p *Reader) ReadBytesReply() ([]byte, error) {
 	line, err := p.ReadLine()
 	if err != nil {
 		return nil, err
 	}
 	switch line[0] {
 	case ErrorReply:
-		return nil, ParseErrorReply(line)
+		return nil, parseErrorValue(line)
 	case StringReply:
 		return p.readBytesValue(line)
 	case StatusReply:
@@ -119,18 +119,8 @@ func (p *Reader) ReadTmpBytesReply() ([]byte, error) {
 	}
 }
 
-func (r *Reader) ReadBytesReply() ([]byte, error) {
-	b, err := r.ReadTmpBytesReply()
-	if err != nil {
-		return nil, err
-	}
-	cp := make([]byte, len(b))
-	copy(cp, b)
-	return cp, nil
-}
-
 func (p *Reader) ReadStringReply() (string, error) {
-	b, err := p.ReadTmpBytesReply()
+	b, err := p.ReadBytesReply()
 	if err != nil {
 		return "", err
 	}
@@ -138,11 +128,11 @@ func (p *Reader) ReadStringReply() (string, error) {
 }
 
 func (p *Reader) ReadFloatReply() (float64, error) {
-	b, err := p.ReadTmpBytesReply()
+	s, err := p.ReadStringReply()
 	if err != nil {
 		return 0, err
 	}
-	return parseFloat(b, 64)
+	return strconv.ParseFloat(s, 64)
 }
 
 func (p *Reader) ReadArrayReply(m MultiBulkParse) (interface{}, error) {
@@ -152,7 +142,7 @@ func (p *Reader) ReadArrayReply(m MultiBulkParse) (interface{}, error) {
 	}
 	switch line[0] {
 	case ErrorReply:
-		return nil, ParseErrorReply(line)
+		return nil, parseErrorValue(line)
 	case ArrayReply:
 		n, err := parseArrayLen(line)
 		if err != nil {
@@ -171,7 +161,7 @@ func (p *Reader) ReadArrayLen() (int64, error) {
 	}
 	switch line[0] {
 	case ErrorReply:
-		return 0, ParseErrorReply(line)
+		return 0, parseErrorValue(line)
 	case ArrayReply:
 		return parseArrayLen(line)
 	default:
@@ -188,7 +178,12 @@ func (p *Reader) ReadScanReply() ([]string, uint64, error) {
 		return nil, 0, fmt.Errorf("redis: got %d elements in scan reply, expected 2", n)
 	}
 
-	cursor, err := p.ReadUint()
+	s, err := p.ReadStringReply()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	cursor, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -225,22 +220,6 @@ func (p *Reader) readBytesValue(line []byte) ([]byte, error) {
 		return nil, err
 	}
 	return b[:replyLen], nil
-}
-
-func (r *Reader) ReadInt() (int64, error) {
-	b, err := r.ReadTmpBytesReply()
-	if err != nil {
-		return 0, err
-	}
-	return parseInt(b, 10, 64)
-}
-
-func (r *Reader) ReadUint() (uint64, error) {
-	b, err := r.ReadTmpBytesReply()
-	if err != nil {
-		return 0, err
-	}
-	return parseUint(b, 10, 64)
 }
 
 // --------------------------------------------------------------------
@@ -293,7 +272,7 @@ func isNilReply(b []byte) bool {
 		b[1] == '-' && b[2] == '1'
 }
 
-func ParseErrorReply(line []byte) error {
+func parseErrorValue(line []byte) error {
 	return internal.RedisError(string(line[1:]))
 }
 
@@ -301,25 +280,13 @@ func parseStatusValue(line []byte) ([]byte, error) {
 	return line[1:], nil
 }
 
+func parseIntValue(line []byte) (int64, error) {
+	return strconv.ParseInt(string(line[1:]), 10, 64)
+}
+
 func parseArrayLen(line []byte) (int64, error) {
 	if isNilReply(line) {
 		return 0, internal.Nil
 	}
-	return parseInt(line[1:], 10, 64)
-}
-
-func atoi(b []byte) (int, error) {
-	return strconv.Atoi(internal.BytesToString(b))
-}
-
-func parseInt(b []byte, base int, bitSize int) (int64, error) {
-	return strconv.ParseInt(internal.BytesToString(b), base, bitSize)
-}
-
-func parseUint(b []byte, base int, bitSize int) (uint64, error) {
-	return strconv.ParseUint(internal.BytesToString(b), base, bitSize)
-}
-
-func parseFloat(b []byte, bitSize int) (float64, error) {
-	return strconv.ParseFloat(internal.BytesToString(b), bitSize)
+	return parseIntValue(line)
 }

@@ -78,7 +78,7 @@ func (a *adapter) Disconnected(err error) {
 }
 
 func eventListener(chaincodeID string) {
-	eventAddress := viper.GetString("peer.validator.events.address")
+	eventAddress := viper.GetString("app.events.address")
 
 	a := &adapter{
 		blockEvent:     make(chan *pb.Event_Block),

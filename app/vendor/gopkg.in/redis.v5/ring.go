@@ -136,6 +136,8 @@ type Ring struct {
 	closed bool
 }
 
+var _ Cmdable = (*Ring)(nil)
+
 func NewRing(opt *RingOptions) *Ring {
 	const nreplicas = 100
 	opt.init()
@@ -265,8 +267,11 @@ func (c *Ring) shardByName(name string) (*ringShard, error) {
 }
 
 func (c *Ring) cmdShard(cmd Cmder) (*ringShard, error) {
-	cmdInfo := c.cmdInfo(cmd.name())
+	cmdInfo := c.cmdInfo(cmd.arg(0))
 	firstKey := cmd.arg(cmdFirstKeyPos(cmd, cmdInfo))
+	if firstKey == "" {
+		return c.randomShard()
+	}
 	return c.shardByKey(firstKey)
 }
 
@@ -327,7 +332,7 @@ func (c *Ring) heartbeat() {
 //
 // It is rare to Close a Ring, as the Ring is meant to be long-lived
 // and shared between many goroutines.
-func (c *Ring) Close() error {
+func (c *Ring) Close() (retErr error) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 
@@ -336,16 +341,15 @@ func (c *Ring) Close() error {
 	}
 	c.closed = true
 
-	var firstErr error
 	for _, shard := range c.shards {
-		if err := shard.Client.Close(); err != nil && firstErr == nil {
-			firstErr = err
+		if err := shard.Client.Close(); err != nil {
+			retErr = err
 		}
 	}
 	c.hash = nil
 	c.shards = nil
 
-	return firstErr
+	return retErr
 }
 
 func (c *Ring) Pipeline() *Pipeline {
@@ -364,7 +368,7 @@ func (c *Ring) Pipelined(fn func(*Pipeline) error) ([]Cmder, error) {
 func (c *Ring) pipelineExec(cmds []Cmder) (firstErr error) {
 	cmdsMap := make(map[string][]Cmder)
 	for _, cmd := range cmds {
-		cmdInfo := c.cmdInfo(cmd.name())
+		cmdInfo := c.cmdInfo(cmd.arg(0))
 		name := cmd.arg(cmdFirstKeyPos(cmd, cmdInfo))
 		if name != "" {
 			name = c.hash.Get(hashtag.Key(name))
@@ -376,6 +380,10 @@ func (c *Ring) pipelineExec(cmds []Cmder) (firstErr error) {
 		var failedCmdsMap map[string][]Cmder
 
 		for name, cmds := range cmdsMap {
+			if i > 0 {
+				resetCmds(cmds)
+			}
+
 			shard, err := c.shardByName(name)
 			if err != nil {
 				setCmdsErr(cmds, err)
@@ -394,7 +402,7 @@ func (c *Ring) pipelineExec(cmds []Cmder) (firstErr error) {
 				continue
 			}
 
-			canRetry, err := shard.Client.pipelineProcessCmds(cn, cmds)
+			retry, err := execCmds(cn, cmds)
 			shard.Client.putConn(cn, err, false)
 			if err == nil {
 				continue
@@ -402,7 +410,7 @@ func (c *Ring) pipelineExec(cmds []Cmder) (firstErr error) {
 			if firstErr == nil {
 				firstErr = err
 			}
-			if canRetry && internal.IsRetryableError(err) {
+			if retry {
 				if failedCmdsMap == nil {
 					failedCmdsMap = make(map[string][]Cmder)
 				}

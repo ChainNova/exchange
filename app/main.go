@@ -7,71 +7,67 @@ import (
 	"strings"
 
 	"github.com/gocraft/web"
-	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
-type AppREST struct {
+type App struct {
 }
 
 var (
 	myLogger = logging.MustGetLogger("app")
 
 	// chaincode url
-	restURL  string
-	connPeer string
-	admin    string
+	adaptorURL string
 )
 
 func buildRouter() *web.Router {
-	router := web.New(AppREST{})
+	router := web.New(App{})
 
 	// Add middleware
-	router.Middleware((*AppREST).SetResponseType)
+	router.Middleware((*App).SetResponseType)
 
-	api := router.Subrouter(AppREST{}, "/api")
-	api.Post("/login", (*AppREST).Login)
-	api.Post("/logout", (*AppREST).Logout)
-	api.Get("/islogin", (*AppREST).IsLogin)
-	api.Get("/mycurrency", (*AppREST).MyCurrency)
-	api.Get("/myasset", (*AppREST).MyAsset)
-	api.Get("/currencys", (*AppREST).Currencys)
-	api.Get("/history", (*AppREST).History)
-	api.Get("/users", (*AppREST).Users)
+	api := router.Subrouter(App{}, "/api")
+	api.Post("/login", (*App).Login)
+	api.Post("/logout", (*App).Logout)
+	api.Get("/islogin", (*App).IsLogin)
+	api.Get("/mycurrency", (*App).MyCurrency)
+	api.Get("/myasset", (*App).MyAsset)
+	api.Get("/currencys", (*App).Currencys)
+	api.Get("/history", (*App).History)
+	api.Get("/users", (*App).Users)
 
 	// Add routes
-	currencyRouter := api.Subrouter(AppREST{}, "/currency")
-	currencyRouter.Get("/:id", (*AppREST).Currency)
-	currencyRouter.Post("/create", (*AppREST).Create)
-	currencyRouter.Post("/release", (*AppREST).Release)
-	currencyRouter.Post("/assign", (*AppREST).Assign)
-	currencyRouter.Get("/create/:txid", (*AppREST).CheckCreate)
-	currencyRouter.Get("/release/:txid", (*AppREST).CheckRelease)
-	currencyRouter.Get("/assign/:txid", (*AppREST).CheckAssign)
+	currencyRouter := api.Subrouter(App{}, "/currency")
+	currencyRouter.Get("/:id", (*App).Currency)
+	currencyRouter.Post("/create", (*App).Create)
+	currencyRouter.Post("/release", (*App).Release)
+	currencyRouter.Post("/assign", (*App).Assign)
+	currencyRouter.Get("/create/:txid", (*App).CheckCreate)
+	currencyRouter.Get("/release/:txid", (*App).CheckRelease)
+	currencyRouter.Get("/assign/:txid", (*App).CheckAssign)
 
-	txRouter := api.Subrouter(AppREST{}, "/tx")
-	txRouter.Get("/:uuid", (*AppREST).Tx)
-	txRouter.Get("/market/:srccurrency/:descurrency/:count", (*AppREST).Market)
-	txRouter.Post("/exchange", (*AppREST).Exchange)
-	txRouter.Post("/cancel", (*AppREST).Cancel)
-	txRouter.Get("/exchange/:uuid", (*AppREST).CheckOrder)
-	txRouter.Get("/cancel/:uuid", (*AppREST).CheckCancel)
-	txRouter.Get("/my/:status/:count", (*AppREST).MyTxs)
-	txRouter.Get("/:srccurrency/:descurrency/:count", (*AppREST).CurrencysTxs)
+	txRouter := api.Subrouter(App{}, "/tx")
+	txRouter.Get("/:uuid", (*App).Tx)
+	txRouter.Get("/market/:srccurrency/:descurrency/:count", (*App).Market)
+	txRouter.Post("/exchange", (*App).Exchange)
+	txRouter.Post("/cancel", (*App).Cancel)
+	txRouter.Get("/exchange/:uuid", (*App).CheckOrder)
+	txRouter.Get("/cancel/:uuid", (*App).CheckCancel)
+	txRouter.Get("/my/:status/:count", (*App).MyTxs)
+	txRouter.Get("/:srccurrency/:descurrency/:count", (*App).CurrencysTxs)
 
 	// Add not found page
-	router.NotFound((*AppREST).NotFound)
+	router.NotFound((*App).NotFound)
 
 	return router
 }
 
 func initConfig() {
 	// Now set the configuration file
-	viper.SetEnvPrefix("HYPERLEDGER")
+	viper.SetEnvPrefix("APP")
 	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.AddConfigPath(".")      // path to look for the config file in
 	err := viper.ReadInConfig()   // Find and read the config file
@@ -86,24 +82,7 @@ func main() {
 	initRedis()
 	defer client.Close()
 
-	crypto.Init()
-	// Enable fabric 'confidentiality'
-	confidentiality(viper.GetBool("security.privacy"))
-	admin = viper.GetString("app.admin.name")
-	connPeer = viper.GetString("app.connpeer")
-	myLogger.Debugf("The peer connection type is: %s ", connPeer)
-
-	if connPeer == "grpc" {
-		if err := initNVP(); err != nil {
-			myLogger.Errorf("Failed initiliazing NVP [%s]", err)
-			os.Exit(-1)
-		}
-	} else if connPeer == "rest" {
-		restURL = viper.GetString("rest.address")
-	} else {
-		myLogger.Errorf("connPeer not know")
-		os.Exit(-1)
-	}
+	adaptorURL = viper.GetString("app.adaptor.address")
 
 	// Deploy
 	if err := deploy(); err != nil {

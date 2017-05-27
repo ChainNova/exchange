@@ -12,6 +12,7 @@ import (
 
 	"github.com/gocraft/web"
 	"github.com/hyperledger/fabric/core/util"
+	pb "github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 )
 
@@ -31,11 +32,6 @@ type txResult struct {
 
 type checkResult struct {
 	Flag string `json:"flag"`
-}
-
-type User struct {
-	EnrollID     string `json:"enrollId"`
-	EnrollSecret string `json:"enrollSecret"`
 }
 
 const (
@@ -110,7 +106,7 @@ type Null struct {
 var Multiple = math.Pow10(6)
 
 // NotFound NotFound
-func (a *AppREST) NotFound(rw web.ResponseWriter, req *web.Request) {
+func (a *App) NotFound(rw web.ResponseWriter, req *web.Request) {
 	rw.WriteHeader(http.StatusNotFound)
 	json.NewEncoder(rw).Encode(restResp{Status: FAILED, Result: respErr{Code: REQNOTFOUND, Msg: "Request not found"}})
 }
@@ -118,7 +114,7 @@ func (a *AppREST) NotFound(rw web.ResponseWriter, req *web.Request) {
 // SetResponseType is a middleware function that sets the appropriate response
 // headers. Currently, it is setting the "Content-Type" to "application/json" as
 // well as the necessary headers in order to enable CORS for Swagger usage.
-func (s *AppREST) SetResponseType(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
+func (a *App) SetResponseType(rw web.ResponseWriter, req *web.Request, next web.NextMiddlewareFunc) {
 	rw.Header().Set("Content-Type", "application/json")
 
 	// Enable CORS
@@ -129,7 +125,7 @@ func (s *AppREST) SetResponseType(rw web.ResponseWriter, req *web.Request, next 
 }
 
 // Create 创建币
-func (a *AppREST) Create(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Create(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing create currency request...")
 
 	encoder := json.NewEncoder(rw)
@@ -207,7 +203,7 @@ func (a *AppREST) Create(rw web.ResponseWriter, req *web.Request) {
 // response说明：StatusBadRequest  失败  不需继续轮询，Error表示失败原因
 //				StatusOK OK="1" 成功  不需继续轮询
 //				StatusOK OK="0" 未果  需要继续轮询
-func (a *AppREST) CheckCreate(rw web.ResponseWriter, req *web.Request) {
+func (a *App) CheckCreate(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing check create request...")
 
 	encoder := json.NewEncoder(rw)
@@ -245,7 +241,7 @@ func (a *AppREST) CheckCreate(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Currency 获取币信息
-func (a *AppREST) Currency(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Currency(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get currency request...")
 
 	encoder := json.NewEncoder(rw)
@@ -303,7 +299,7 @@ func (a *AppREST) Currency(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Currencys 获取币信息
-func (a *AppREST) Currencys(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Currencys(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get all currency request...")
 
 	encoder := json.NewEncoder(rw)
@@ -349,7 +345,7 @@ func (a *AppREST) Currencys(rw web.ResponseWriter, req *web.Request) {
 }
 
 // MyCurrency MyCurrency
-func (a *AppREST) MyCurrency(rw web.ResponseWriter, req *web.Request) {
+func (a *App) MyCurrency(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Debug("------------- MyCurrency...")
 
 	encoder := json.NewEncoder(rw)
@@ -400,7 +396,7 @@ func (a *AppREST) MyCurrency(rw web.ResponseWriter, req *web.Request) {
 }
 
 // MyAsset MyAsset
-func (a *AppREST) MyAsset(rw web.ResponseWriter, req *web.Request) {
+func (a *App) MyAsset(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Debug("------------- mMyAssety...")
 
 	encoder := json.NewEncoder(rw)
@@ -460,7 +456,7 @@ type Asset struct {
 }
 
 // Tx 将挂单信息
-func (a *AppREST) Tx(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Tx(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get tx request...")
 
 	encoder := json.NewEncoder(rw)
@@ -490,7 +486,7 @@ func (a *AppREST) Tx(rw web.ResponseWriter, req *web.Request) {
 }
 
 // MyTxs 个人挂单记录
-func (a *AppREST) MyTxs(rw web.ResponseWriter, req *web.Request) {
+func (a *App) MyTxs(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get user txs request...")
 
 	encoder := json.NewEncoder(rw)
@@ -544,7 +540,7 @@ type History struct {
 }
 
 // History 历史信息（包括创建币、增加币、分发币、接收币、挂单、撤单、过期）
-func (a *AppREST) History(rw web.ResponseWriter, req *web.Request) {
+func (a *App) History(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get user history request...")
 
 	encoder := json.NewEncoder(rw)
@@ -663,7 +659,7 @@ func (a *AppREST) History(rw web.ResponseWriter, req *web.Request) {
 }
 
 // CurrencysTxs 两币之间挂单记录
-func (a *AppREST) CurrencysTxs(rw web.ResponseWriter, req *web.Request) {
+func (a *App) CurrencysTxs(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get currency txs request...")
 
 	encoder := json.NewEncoder(rw)
@@ -733,7 +729,7 @@ func (a *AppREST) CurrencysTxs(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Market 市场挂单（未被撮合）
-func (a *AppREST) Market(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Market(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing get market request...")
 
 	encoder := json.NewEncoder(rw)
@@ -802,7 +798,7 @@ func (a *AppREST) Market(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Release 发布币
-func (a *AppREST) Release(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Release(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing currency release request...")
 
 	encoder := json.NewEncoder(rw)
@@ -879,7 +875,7 @@ func (a *AppREST) Release(rw web.ResponseWriter, req *web.Request) {
 // response说明：StatusBadRequest  失败  不需继续轮询，Error表示失败原因
 //				StatusOK OK="1" 成功  不需继续轮询
 //				StatusOK OK="0" 未果  需要继续轮询
-func (a *AppREST) CheckRelease(rw web.ResponseWriter, req *web.Request) {
+func (a *App) CheckRelease(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing check release request...")
 
 	encoder := json.NewEncoder(rw)
@@ -916,7 +912,7 @@ func (a *AppREST) CheckRelease(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Assign 分发币
-func (a *AppREST) Assign(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Assign(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing currency assign request...")
 
 	encoder := json.NewEncoder(rw)
@@ -1002,7 +998,7 @@ func (a *AppREST) Assign(rw web.ResponseWriter, req *web.Request) {
 // response说明：StatusBadRequest  失败  不需继续轮询，Error表示失败原因
 //				StatusOK OK="1" 成功  不需继续轮询
 //				StatusOK OK="0" 未果  需要继续轮询
-func (a *AppREST) CheckAssign(rw web.ResponseWriter, req *web.Request) {
+func (a *App) CheckAssign(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing check assign request...")
 
 	encoder := json.NewEncoder(rw)
@@ -1039,7 +1035,7 @@ func (a *AppREST) CheckAssign(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Exchange 挂单
-func (a *AppREST) Exchange(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Exchange(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing order request...")
 
 	encoder := json.NewEncoder(rw)
@@ -1144,7 +1140,7 @@ func (a *AppREST) Exchange(rw web.ResponseWriter, req *web.Request) {
 // response说明：StatusBadRequest  挂单失败  不需继续轮询，Error表示失败原因
 //				StatusOK OK="1"   挂单成功  不需继续轮询
 //				StatusOK OK="0"   未果 需要继续轮询
-func (a *AppREST) CheckOrder(rw web.ResponseWriter, req *web.Request) {
+func (a *App) CheckOrder(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing check order request...")
 
 	encoder := json.NewEncoder(rw)
@@ -1214,7 +1210,7 @@ func (a *AppREST) CheckOrder(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Cancel 撤单
-func (a *AppREST) Cancel(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Cancel(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing cancel order request...")
 
 	encoder := json.NewEncoder(rw)
@@ -1288,7 +1284,7 @@ func (a *AppREST) Cancel(rw web.ResponseWriter, req *web.Request) {
 // response说明：StatusBadRequest撤单失败  不需继续轮询，Error表示失败原因
 //				StatusOK OK="1" 撤单成功  不需继续轮询
 //				StatusOK OK="0" 未果 需要继续轮询
-func (a *AppREST) CheckCancel(rw web.ResponseWriter, req *web.Request) {
+func (a *App) CheckCancel(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Info("REST processing check order cancel request...")
 
 	encoder := json.NewEncoder(rw)
@@ -1356,7 +1352,7 @@ func (a *AppREST) CheckCancel(rw web.ResponseWriter, req *web.Request) {
 
 // login confirms the account and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
-func (a *AppREST) Login(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Login(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Debug("------------- login...")
 
 	encoder := json.NewEncoder(rw)
@@ -1371,7 +1367,7 @@ func (a *AppREST) Login(rw web.ResponseWriter, req *web.Request) {
 	}
 	myLogger.Debugf("Req body: %s", string(reqBody))
 
-	var loginRequest User
+	var loginRequest pb.Secret
 	err = json.Unmarshal(reqBody, &loginRequest)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
@@ -1381,18 +1377,14 @@ func (a *AppREST) Login(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// Check that the enrollId and enrollSecret are not left blank.
-	if (loginRequest.EnrollID == "") || (loginRequest.EnrollSecret == "") {
+	if (loginRequest.EnrollId == "") || (loginRequest.EnrollSecret == "") {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(restResp{Status: FAILED, Result: respErr{Code: PARAMERR, Msg: "enrollId and enrollSecret can not be null"}})
 		myLogger.Errorf("Failed login: [%s]", errors.New("enrollId and enrollSecret can not be null"))
 		return
 	}
 
-	if connPeer == "grpc" {
-		_, err = setCryptoClient(loginRequest.EnrollID, loginRequest.EnrollSecret)
-	} else {
-		err = loginRest(reqBody)
-	}
+	err = login(&loginRequest)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(restResp{Status: FAILED, Result: respErr{Code: SYSERR, Msg: "username or pwd is wrong"}})
@@ -1401,7 +1393,7 @@ func (a *AppREST) Login(rw web.ResponseWriter, req *web.Request) {
 	}
 
 	// 初始化账户资产信息
-	_, err = initAccount(loginRequest.EnrollID)
+	_, err = initAccount(loginRequest.EnrollId)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(restResp{Status: FAILED, Result: respErr{Code: SYSERR, Msg: "init account failed"}})
@@ -1411,7 +1403,7 @@ func (a *AppREST) Login(rw web.ResponseWriter, req *web.Request) {
 
 	http.SetCookie(rw, &http.Cookie{
 		Name:   "loginfo",
-		Value:  loginRequest.EnrollID,
+		Value:  loginRequest.EnrollId,
 		Path:   "/",
 		MaxAge: 86400,
 	})
@@ -1420,16 +1412,17 @@ func (a *AppREST) Login(rw web.ResponseWriter, req *web.Request) {
 	encoder.Encode(restResp{
 		Status: SUCCESS,
 		Result: struct {
-			UserInfo User `json:"userInfo"`
+			UserInfo pb.Secret `json:"userInfo"`
 		}{
-			UserInfo: User{EnrollID: loginRequest.EnrollID},
+			UserInfo: pb.Secret{EnrollId: loginRequest.EnrollId},
 		}})
-	myLogger.Debugf("Login successful for user '%s'.", loginRequest.EnrollID)
+	myLogger.Debugf("Login successful for user '%s'.", loginRequest.EnrollId)
 
 	myLogger.Debug("------------- login Done")
 }
 
-func (a *AppREST) Logout(rw web.ResponseWriter, req *web.Request) {
+// Logout Logout
+func (a *App) Logout(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Debug("------------- logout...")
 
 	encoder := json.NewEncoder(rw)
@@ -1457,11 +1450,11 @@ func checkLogin(req *web.Request) (string, error) {
 }
 
 // IsLogin IsLogin
-func (a *AppREST) IsLogin(rw web.ResponseWriter, req *web.Request) {
+func (a *App) IsLogin(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Debug("------------- islogin...")
 
 	encoder := json.NewEncoder(rw)
-	enrollID, err := checkLogin(req)
+	enrollId, err := checkLogin(req)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(restResp{Status: FAILED, Result: respErr{Code: NOTLOGIN, Msg: err.Error()}})
@@ -1473,18 +1466,18 @@ func (a *AppREST) IsLogin(rw web.ResponseWriter, req *web.Request) {
 	encoder.Encode(restResp{
 		Status: SUCCESS,
 		Result: struct {
-			UserInfo User `json:"userInfo"`
+			UserInfo pb.Secret `json:"userInfo"`
 		}{
-			UserInfo: User{EnrollID: enrollID},
+			UserInfo: pb.Secret{EnrollId: enrollId},
 		}})
 
-	myLogger.Debugf("IsLogin successful for user '%s'.", enrollID)
+	myLogger.Debugf("IsLogin successful for user '%s'.", enrollId)
 
 	myLogger.Debug("------------- islogin Done")
 }
 
 // Users Users
-func (a *AppREST) Users(rw web.ResponseWriter, req *web.Request) {
+func (a *App) Users(rw web.ResponseWriter, req *web.Request) {
 	myLogger.Debug("------------- users...")
 	encoder := json.NewEncoder(rw)
 

@@ -13,7 +13,7 @@ func ToLower(s string) string {
 		}
 		b[i] = c
 	}
-	return BytesToString(b)
+	return string(b)
 }
 
 func isLower(s string) bool {
