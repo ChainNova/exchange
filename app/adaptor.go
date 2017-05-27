@@ -21,6 +21,7 @@ func deployChaincode(chaincode *Chaincode) (err error) {
 		myLogger.Errorf("Failed deploying [%s]", err)
 		return
 	}
+	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
 	err = json.Unmarshal(respBody, result)
@@ -28,8 +29,6 @@ func deployChaincode(chaincode *Chaincode) (err error) {
 		myLogger.Errorf("Failed deploying [%s]", err)
 		return
 	}
-
-	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	if result.Status != pb.Response_SUCCESS {
 		myLogger.Errorf("Failed deploying [%s]", result.Msg)
@@ -58,6 +57,7 @@ func invokeChaincode(chaincode *Chaincode) (ret string, err error) {
 		myLogger.Errorf("Failed invoke [%s]", err)
 		return
 	}
+	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
 	err = json.Unmarshal(respBody, result)
@@ -65,8 +65,6 @@ func invokeChaincode(chaincode *Chaincode) (ret string, err error) {
 		myLogger.Errorf("Failed invoke [%s]", err)
 		return
 	}
-
-	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	if result.Status != pb.Response_SUCCESS {
 		myLogger.Errorf("Failed invoke [%s]", result.Msg)
@@ -94,6 +92,7 @@ func queryChaincode(chaincode *Chaincode) (ret string, err error) {
 		myLogger.Errorf("Failed query [%s]", err)
 		return
 	}
+	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
 	err = json.Unmarshal(respBody, result)
@@ -101,8 +100,6 @@ func queryChaincode(chaincode *Chaincode) (ret string, err error) {
 		myLogger.Errorf("Failed query [%s]", err)
 		return
 	}
-
-	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	if result.Status != pb.Response_SUCCESS {
 		myLogger.Errorf("Failed query [%s]", result.Msg)
@@ -125,6 +122,7 @@ func login(user *pb.Secret) (err error) {
 		myLogger.Errorf("Failed login [%s]", err)
 		return
 	}
+	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	var result pb.Response
 	err = json.Unmarshal(respBody, result)
@@ -132,7 +130,6 @@ func login(user *pb.Secret) (err error) {
 		myLogger.Errorf("Failed login [%s]", err)
 		return
 	}
-	myLogger.Debugf("Resp [%s]", string(respBody))
 
 	if result.Status != pb.Response_SUCCESS {
 		myLogger.Errorf("Failed login [%s]", result.Msg)
