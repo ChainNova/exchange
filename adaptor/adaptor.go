@@ -170,7 +170,7 @@ func (a *Adaptor) Invoke(rw web.ResponseWriter, req *web.Request) {
 	if chaincode.ID.Name == "" || chaincode.User.EnrollId == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode name and uesr name for chaincode requests")})
-		myLogger.Error("Client must supply a chaincode path, uesr name and secret for chaincode requests.")
+		myLogger.Error("Client must supply a chaincode name and uesr name for chaincode requests.")
 		return
 	}
 
@@ -224,10 +224,10 @@ func (a *Adaptor) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	if chaincode.ID.Name == "" || chaincode.User.EnrollId == "" {
+	if chaincode.ID.Name == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode name and uesr name for chaincode requests")})
-		myLogger.Error("Client must supply a chaincode path, uesr name and secret for chaincode requests.")
+		myLogger.Error("Client must supply a chaincode name and uesr name for chaincode requests.")
 		return
 	}
 
@@ -239,7 +239,7 @@ func (a *Adaptor) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	resp, err := chaincode.invoke()
+	resp, err := chaincode.query()
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error query chaincode: %s", err))})
