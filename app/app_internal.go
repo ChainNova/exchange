@@ -137,6 +137,7 @@ func getCurrencys() (currencys string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryAllCurrency")},
+		User:  pb.Secret{EnrollId: admin},
 	}
 
 	return queryChaincode(&chaincode)
@@ -149,6 +150,7 @@ func getCurrency(id string) (currency string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryCurrencyByID", id)},
+		User:  pb.Secret{EnrollId: admin},
 	}
 
 	return queryChaincode(&chaincode)
@@ -161,6 +163,7 @@ func getCurrencysByUser(user string) (currencys string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryMyCurrency", user)},
+		User:  pb.Secret{EnrollId: user},
 	}
 
 	return queryChaincode(&chaincode)
@@ -173,6 +176,7 @@ func getAsset(user string) (asset string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryAssetByOwner", user)},
+		User:  pb.Secret{EnrollId: user},
 	}
 
 	return queryChaincode(&chaincode)
@@ -185,6 +189,7 @@ func getTxLogs() (txLogs string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryTxLogs")},
+		User:  pb.Secret{EnrollId: admin},
 	}
 
 	return queryChaincode(&chaincode)
@@ -211,6 +216,7 @@ func getMyReleaseLog(user string) (log string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryMyReleaseLog", user)},
+		User:  pb.Secret{EnrollId: user},
 	}
 
 	return queryChaincode(&chaincode)
@@ -223,6 +229,7 @@ func getMyAssignLog(user string) (log string, err error) {
 		ID:    &pb.ChaincodeID{Name: chaincodeName},
 		Type:  chaincodeType,
 		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("queryMyAssignLog", user)},
+		User:  pb.Secret{EnrollId: user},
 	}
 
 	return queryChaincode(&chaincode)

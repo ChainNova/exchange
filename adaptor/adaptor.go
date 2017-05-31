@@ -224,7 +224,7 @@ func (a *Adaptor) Query(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	if chaincode.ID.Name == "" {
+	if chaincode.ID.Name == "" || chaincode.User.EnrollId == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Client must supply a chaincode name and uesr name for chaincode requests")})
 		myLogger.Error("Client must supply a chaincode name and uesr name for chaincode requests.")
