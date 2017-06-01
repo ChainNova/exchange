@@ -34,6 +34,9 @@ func initConfig() {
 func main() {
 	initConfig()
 
+	initRedis()
+	defer client.Close()
+
 	go checkChaincodeID()
 
 	chaincodeID, _ = getChaincodeID()
