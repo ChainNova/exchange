@@ -42,7 +42,6 @@ func main() {
 	chaincodeID, _ = getChaincodeID()
 	if chaincodeID == "" {
 		myLogger.Error("Can't find chaincode!!!")
-		return
 	}
 
 	a = &adapter{
