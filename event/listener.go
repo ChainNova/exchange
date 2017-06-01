@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"time"
@@ -30,11 +29,6 @@ type BatchResult struct {
 }
 
 const Chaincode_Success = "SUCCESS"
-
-var (
-	chaincodeID string
-	obcEHClient *consumer.EventsClient
-)
 
 func (a *adapter) GetInterestedEvents() ([]*pb.Interest, error) {
 	if a.chaincodeID != "" {
@@ -75,24 +69,12 @@ func (a *adapter) Recv(msg *pb.Event) (bool, error) {
 func (a *adapter) Disconnected(err error) {
 	myLogger.Debug("Disconnected...reconnecting\n")
 	obcEHClient.Stop()
-	go eventListener()
+	eventListener(a)
 	myLogger.Debug("Reconnected...\n")
 }
 
-func eventListener() {
+func eventListener(a *adapter) {
 	eventAddress := viper.GetString("event.address")
-
-	chaincodeID, _ = getChaincodeID()
-	if chaincodeID == "" {
-		myLogger.Error("Can't find chaincode!!!")
-		return
-	}
-
-	a := &adapter{
-		blockEvent:     make(chan *pb.Event_Block),
-		chaincodeEvent: make(chan *pb.Event_ChaincodeEvent),
-		rejectionEvent: make(chan *pb.Event_Rejection),
-		chaincodeID:    chaincodeID}
 
 	t := viper.GetDuration("event.client.regTimeout")
 	obcEHClient, _ = consumer.NewEventsClient(eventAddress, t, a)
@@ -103,37 +85,6 @@ func eventListener() {
 		} else {
 			myLogger.Errorf("connected eventAddress %v ok\n", eventAddress)
 			break
-		}
-	}
-
-	for {
-		select {
-		case b := <-a.blockEvent:
-			myLogger.Debug("Received block\n")
-			myLogger.Debug("--------------\n")
-			for _, r := range b.Block.Transactions {
-				myLogger.Debugf("Transaction:\n\t[%v]\n", r)
-				setChaincodeResult(r.Txid, Chaincode_Success)
-			}
-		case r := <-a.rejectionEvent:
-			myLogger.Debug("Received rejected transaction\n")
-			myLogger.Debug("--------------\n")
-			myLogger.Debugf("Transaction error:\n%s\n", r.Rejection.ErrorMsg)
-
-			if r.Rejection.Tx != nil {
-				setChaincodeResult(r.Rejection.Tx.Txid, r.Rejection.ErrorMsg)
-			}
-		case ce := <-a.chaincodeEvent:
-			myLogger.Debug("Received chaincode event\n")
-			myLogger.Debug("------------------------\n")
-			myLogger.Debugf("Chaincode Event:%v\n", ce)
-
-			var batch BatchResult
-			err := json.Unmarshal(ce.ChaincodeEvent.Payload, &batch)
-			if err != nil {
-				continue
-			}
-			setChaincodeBatchResult(ce.ChaincodeEvent.TxID, batch)
 		}
 	}
 }
@@ -147,7 +98,8 @@ func checkChaincodeID() {
 		if newChaincodeID != chaincodeID {
 			myLogger.Debug("chaincode changes...reconnecting\n")
 			obcEHClient.Stop()
-			go eventListener()
+			a.chaincodeID = newChaincodeID
+			eventListener(a)
 			myLogger.Debug("Reconnected...\n")
 		}
 	}
