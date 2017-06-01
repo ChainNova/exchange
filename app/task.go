@@ -15,26 +15,50 @@ type LockInfo struct {
 	Count    int64  `json:"count"`
 }
 
+func task() {
+	lockTicker := time.NewTicker(viper.GetDuration("app.task.polling.lock"))
+	matchTicker := time.NewTicker(viper.GetDuration("app.task.polling.match"))
+	execTicker := time.NewTicker(viper.GetDuration("app.task.polling.exec"))
+	expiredTicker := time.NewTicker(viper.GetDuration("app.task.polling.expired"))
+	findexpiredTicker := time.NewTicker(viper.GetDuration("app.task.polling.findexpired"))
+	cancelTicker := time.NewTicker(viper.GetDuration("app.task.polling.cancel"))
+	eventTicker := time.NewTicker(viper.GetDuration("app.task.polling.event"))
+
+	for {
+		select {
+		case <-lockTicker.C:
+			go lockBalance()
+		case <-matchTicker.C:
+			go matchTx()
+		case <-execTicker.C:
+			go execTx()
+		case <-expiredTicker.C:
+			go execExpired()
+		case <-findexpiredTicker.C:
+			go findExpired()
+		case <-cancelTicker.C:
+			go execCancel()
+		case <-eventTicker.C:
+			go handleEventMsg()
+		}
+	}
+}
+
 // lockBalance 锁定挂单余额
 func lockBalance() {
 	batch := viper.GetInt64("redis.batch.pending")
-	sleep := viper.GetDuration("app.task.polling.lock")
 
-	for {
-		// 1.取出待挂单
-		uuids, err := getBathSetMember(PendingOrdersKey, batch)
-		if err != nil || len(uuids) == 0 {
-			continue
-		}
-
-		myLogger.Debugf("锁定挂单 %s 余额...", uuids)
-
-		// 2.调用chaincode锁定相关信息
-		lockInfo := getLockInfo(uuids)
-		lock(lockInfo, true, "lock")
-
-		time.Sleep(sleep * time.Second)
+	// 1.取出待挂单
+	uuids, err := getBathSetMember(PendingOrdersKey, batch)
+	if err != nil || len(uuids) == 0 {
+		return
 	}
+
+	myLogger.Debugf("锁定挂单 %s 余额...", uuids)
+
+	// 2.调用chaincode锁定相关信息
+	lockInfo := getLockInfo(uuids)
+	lock(lockInfo, true, "lock")
 }
 
 // lockSuccess 锁定成功
@@ -46,6 +70,11 @@ func lockSuccess(uuids []string) {
 		// 2.将挂单放到买卖队列,并放到账户对应的挂单集合中
 		mvPending2BS(uuid)
 	}
+}
+
+type FailInfo struct {
+	Id   string `json:"id"`
+	Info string `json:"info"`
 }
 
 // lockFail 锁定失败
@@ -60,57 +89,52 @@ func lockFail(fails []FailInfo) {
 
 // matchTx 撮合交易
 func matchTx() {
-	sleep := viper.GetDuration("app.task.polling.match")
+	// 买卖队列所有key
+	keys, _ := getKeys(ExchangeKey + "*")
+	keyMap := make(map[string]string, 0)
 
-	for {
-		// 买卖队列所有key
-		keys, _ := getKeys(ExchangeKey + "*")
-		keyMap := make(map[string]string, 0)
-
-		for _, key := range keys {
-			if _, ok := keyMap[key]; ok {
-				continue
-			}
-
-			// 1.取买卖队列中的第一个挂单
-			buyUUID, err := getFirstZSet(key)
-			if err != nil || len(buyUUID) == 0 {
-				continue
-			}
-			// 2.校验挂单是否过期
-			buyOrder, isExpired := checkExpired(buyUUID)
-			if isExpired {
-				continue
-			}
-
-			keyMap[key] = key
-			key = getBSKeyByOne(key)
-			keyMap[key] = key
-
-			// 3.取买卖出队列中对应的第一个挂单
-			sellUUID, err := getFirstZSet(key)
-			if err != nil || len(sellUUID) == 0 {
-				continue
-			}
-			// 4.校验是否过期
-			sellOrder, isExpired := checkExpired(sellUUID)
-			if isExpired {
-				continue
-			}
-
-			myLogger.Debugf("%s 的卖出价：%f/%f=%.6f %s", buyOrder.SrcCurrency, buyOrder.DesCount, buyOrder.SrcCount, buyOrder.DesCount/buyOrder.SrcCount, buyOrder.DesCurrency)
-			myLogger.Debugf("%s 的买入价：%f/%f=%.6f %s", sellOrder.DesCurrency, sellOrder.SrcCount, sellOrder.DesCount, sellOrder.SrcCount/sellOrder.DesCount, sellOrder.SrcCurrency)
-			// 5.比较价格，进行撮合
-			if buyOrder.DesCount/buyOrder.SrcCount > sellOrder.SrcCount/sellOrder.DesCount {
-				continue
-			}
-
-			myLogger.Debugf("匹配成功，买入挂单：%s, 卖出挂单：%s", buyUUID, sellUUID)
-
-			// 6.撮合成功，处理买卖挂单
-			dealMatchOrder(buyOrder, sellOrder, time.Now().Unix())
+	for _, key := range keys {
+		if _, ok := keyMap[key]; ok {
+			continue
 		}
-		time.Sleep(sleep * time.Second)
+
+		// 1.取买卖队列中的第一个挂单
+		buyUUID, err := getFirstZSet(key)
+		if err != nil || len(buyUUID) == 0 {
+			continue
+		}
+		// 2.校验挂单是否过期
+		buyOrder, isExpired := checkExpired(buyUUID)
+		if isExpired {
+			continue
+		}
+
+		keyMap[key] = key
+		key = getBSKeyByOne(key)
+		keyMap[key] = key
+
+		// 3.取买卖出队列中对应的第一个挂单
+		sellUUID, err := getFirstZSet(key)
+		if err != nil || len(sellUUID) == 0 {
+			continue
+		}
+		// 4.校验是否过期
+		sellOrder, isExpired := checkExpired(sellUUID)
+		if isExpired {
+			continue
+		}
+
+		myLogger.Debugf("%s 的卖出价：%f/%f=%.6f %s", buyOrder.SrcCurrency, buyOrder.DesCount, buyOrder.SrcCount, buyOrder.DesCount/buyOrder.SrcCount, buyOrder.DesCurrency)
+		myLogger.Debugf("%s 的买入价：%f/%f=%.6f %s", sellOrder.DesCurrency, sellOrder.SrcCount, sellOrder.DesCount, sellOrder.SrcCount/sellOrder.DesCount, sellOrder.SrcCurrency)
+		// 5.比较价格，进行撮合
+		if buyOrder.DesCount/buyOrder.SrcCount > sellOrder.SrcCount/sellOrder.DesCount {
+			continue
+		}
+
+		myLogger.Debugf("匹配成功，买入挂单：%s, 卖出挂单：%s", buyUUID, sellUUID)
+
+		// 6.撮合成功，处理买卖挂单
+		dealMatchOrder(buyOrder, sellOrder, time.Now().Unix())
 	}
 }
 
@@ -122,75 +146,70 @@ type ExchangeOrder struct {
 // execTx 执行撮合交易
 func execTx() {
 	batch := viper.GetInt64("redis.batch.matched")
-	sleep := viper.GetDuration("app.task.polling.exec")
 
-	for {
-		// 1.取出撮合好的一对交易
-		uuids, err := getBathSetMember(MatchedOrdersKey, batch)
-		if err != nil || len(uuids) == 0 {
+	// 1.取出撮合好的一对交易
+	uuids, err := getBathSetMember(MatchedOrdersKey, batch)
+	if err != nil || len(uuids) == 0 {
+		return
+	}
+
+	myLogger.Debugf("执行撮合好的交易 %s ...", uuids)
+
+	// 2.chaincode执行交易
+	exchanges := []*ExchangeOrder{}
+	for _, v := range uuids {
+		towUuid := strings.Split(v, ",")
+
+		buyOrder, err := getOrder(towUuid[0])
+		if err != nil {
+			continue
+		}
+		sellOrder, err := getOrder(towUuid[1])
+		if err != nil {
 			continue
 		}
 
-		myLogger.Debugf("执行撮合好的交易 %s ...", uuids)
-
-		// 2.chaincode执行交易
-		exchanges := []*ExchangeOrder{}
-		for _, v := range uuids {
-			towUuid := strings.Split(v, ",")
-
-			buyOrder, err := getOrder(towUuid[0])
-			if err != nil {
-				continue
-			}
-			sellOrder, err := getOrder(towUuid[1])
-			if err != nil {
-				continue
-			}
-
-			buyOrderInt := &OrderInt{
-				UUID:         buyOrder.UUID,
-				Account:      buyOrder.Account,
-				SrcCurrency:  buyOrder.SrcCurrency,
-				SrcCount:     int64(buyOrder.SrcCount * Multiple),
-				DesCurrency:  buyOrder.DesCurrency,
-				DesCount:     int64(buyOrder.DesCount * Multiple),
-				IsBuyAll:     buyOrder.IsBuyAll,
-				ExpiredTime:  buyOrder.ExpiredTime,
-				PendingTime:  buyOrder.PendingTime,
-				PendedTime:   buyOrder.PendedTime,
-				MatchedTime:  buyOrder.MatchedTime,
-				FinishedTime: buyOrder.FinishedTime,
-				RawUUID:      buyOrder.RawUUID,
-				Metadata:     buyOrder.Metadata,
-				FinalCost:    int64(buyOrder.FinalCost * Multiple),
-			}
-
-			sellOrderInt := &OrderInt{
-				UUID:         sellOrder.UUID,
-				Account:      sellOrder.Account,
-				SrcCurrency:  sellOrder.SrcCurrency,
-				SrcCount:     int64(sellOrder.SrcCount * Multiple),
-				DesCurrency:  sellOrder.DesCurrency,
-				DesCount:     int64(sellOrder.DesCount * Multiple),
-				IsBuyAll:     sellOrder.IsBuyAll,
-				ExpiredTime:  sellOrder.ExpiredTime,
-				PendingTime:  sellOrder.PendingTime,
-				PendedTime:   sellOrder.PendedTime,
-				MatchedTime:  sellOrder.MatchedTime,
-				FinishedTime: sellOrder.FinishedTime,
-				RawUUID:      sellOrder.RawUUID,
-				Metadata:     sellOrder.Metadata,
-				FinalCost:    int64(sellOrder.FinalCost * Multiple),
-			}
-			exchangeOrder := &ExchangeOrder{BuyOrder: buyOrderInt, SellOrder: sellOrderInt}
-			exchanges = append(exchanges, exchangeOrder)
+		buyOrderInt := &OrderInt{
+			UUID:         buyOrder.UUID,
+			Account:      buyOrder.Account,
+			SrcCurrency:  buyOrder.SrcCurrency,
+			SrcCount:     int64(buyOrder.SrcCount * Multiple),
+			DesCurrency:  buyOrder.DesCurrency,
+			DesCount:     int64(buyOrder.DesCount * Multiple),
+			IsBuyAll:     buyOrder.IsBuyAll,
+			ExpiredTime:  buyOrder.ExpiredTime,
+			PendingTime:  buyOrder.PendingTime,
+			PendedTime:   buyOrder.PendedTime,
+			MatchedTime:  buyOrder.MatchedTime,
+			FinishedTime: buyOrder.FinishedTime,
+			RawUUID:      buyOrder.RawUUID,
+			Metadata:     buyOrder.Metadata,
+			FinalCost:    int64(buyOrder.FinalCost * Multiple),
 		}
-		exchangeStr, _ := json.Marshal(&exchanges)
 
-		exchange(string(exchangeStr))
-
-		time.Sleep(sleep * time.Second)
+		sellOrderInt := &OrderInt{
+			UUID:         sellOrder.UUID,
+			Account:      sellOrder.Account,
+			SrcCurrency:  sellOrder.SrcCurrency,
+			SrcCount:     int64(sellOrder.SrcCount * Multiple),
+			DesCurrency:  sellOrder.DesCurrency,
+			DesCount:     int64(sellOrder.DesCount * Multiple),
+			IsBuyAll:     sellOrder.IsBuyAll,
+			ExpiredTime:  sellOrder.ExpiredTime,
+			PendingTime:  sellOrder.PendingTime,
+			PendedTime:   sellOrder.PendedTime,
+			MatchedTime:  sellOrder.MatchedTime,
+			FinishedTime: sellOrder.FinishedTime,
+			RawUUID:      sellOrder.RawUUID,
+			Metadata:     sellOrder.Metadata,
+			FinalCost:    int64(sellOrder.FinalCost * Multiple),
+		}
+		exchangeOrder := &ExchangeOrder{BuyOrder: buyOrderInt, SellOrder: sellOrderInt}
+		exchanges = append(exchanges, exchangeOrder)
 	}
+	exchangeStr, _ := json.Marshal(&exchanges)
+
+	exchange(string(exchangeStr))
 }
 
 // execTxSuccess 执行交易成功
@@ -217,23 +236,18 @@ func dealExpired(uuids ...string) {
 // execExpired 处理过期挂单
 func execExpired(uuid ...string) {
 	batch := viper.GetInt64("redis.batch.expired")
-	sleep := viper.GetDuration("app.task.polling.expired")
 
-	for {
-		// 1.从过期队列中取出一个
-		uuids, err := getBathSetMember(ExpiredOrdersKey, batch)
-		if err != nil || len(uuids) == 0 {
-			continue
-		}
-
-		myLogger.Debugf("处理过期挂单 %s ...", uuids)
-
-		// 2.chaincode处理过期交易
-		lockInfo := getLockInfo(uuids)
-		lock(lockInfo, false, "expire")
-
-		time.Sleep(sleep * time.Second)
+	// 1.从过期队列中取出一个
+	uuids, err := getBathSetMember(ExpiredOrdersKey, batch)
+	if err != nil || len(uuids) == 0 {
+		return
 	}
+
+	myLogger.Debugf("处理过期挂单 %s ...", uuids)
+
+	// 2.chaincode处理过期交易
+	lockInfo := getLockInfo(uuids)
+	lock(lockInfo, false, "expire")
 }
 
 // expiredSuccess 处理过期挂单成功
@@ -251,7 +265,6 @@ func expiredFail(fails []FailInfo) {
 
 // findExpired 定时任务查找过期挂单
 func findExpired() {
-	sleep := viper.GetDuration("app.task.polling.findexpired")
 
 	for {
 		// 取出买卖队列中所有挂单进行判断
@@ -259,8 +272,6 @@ func findExpired() {
 		for _, v := range uuidsBuy {
 			checkExpired(v)
 		}
-
-		time.Sleep(sleep * time.Second)
 	}
 }
 
@@ -283,23 +294,18 @@ func checkExpired(uuid string) (*Order, bool) {
 // execCancel 撤单
 func execCancel() {
 	batch := viper.GetInt64("redis.batch.cancel")
-	sleep := viper.GetDuration("app.task.polling.cancel")
 
-	for {
-		// 1.从撤单队列中取出一个
-		uuids, err := getBathSetMember(CancelingOrderKey, batch)
-		if err != nil || len(uuids) == 0 {
-			continue
-		}
-
-		myLogger.Debugf("处理撤销挂单 %s ...", uuids)
-
-		// 2.chaincode处理撤销交易
-		lockInfo := getLockInfo(uuids)
-		lock(lockInfo, false, "cancel")
-
-		time.Sleep(sleep * time.Second)
+	// 1.从撤单队列中取出一个
+	uuids, err := getBathSetMember(CancelingOrderKey, batch)
+	if err != nil || len(uuids) == 0 {
+		return
 	}
+
+	myLogger.Debugf("处理撤销挂单 %s ...", uuids)
+
+	// 2.chaincode处理撤销交易
+	lockInfo := getLockInfo(uuids)
+	lock(lockInfo, false, "cancel")
 }
 
 // cancelSuccess 撤单成功
@@ -339,4 +345,61 @@ func getLockInfo(uuids []string) string {
 
 	lockInfos, _ := json.Marshal(&locks)
 	return string(lockInfos)
+}
+
+type BatchResult struct {
+	EventName string     `json:"eventName"`
+	SrcMethod string     `json:"srcMethod"`
+	Success   []string   `json:""success`
+	Fail      []FailInfo `json:"fail"`
+}
+
+const Chaincode_Success = "SUCCESS"
+
+// 非批量操作的结果用chaincodeResult[txid]即可处理
+// 批量操作的结果由两种
+// 1.成功：通过chaincodeResult[txid]=success 和 chaincodeBatchResult[txid].Success[] 来确定
+// 2.失败：a. chaincode里直接return err的失败，这种失败保存在chaincodeResult[txid]=ErrMsg中，表示整批操作全部失败.这种失败不处理失败成员
+// 		  b. chaincodeBatchResult[txid].Fail[]里的失败，表示批量处理部分失败（校验失败），这种失败是处理失败成员
+func handleEventMsg() {
+	// 取出事件队列中
+	txids, err := getBathSetMember(ChaincodeResultKey, 1)
+	if err != nil || len(txids) == 0 {
+		return
+	}
+
+	ccEvent, err := getString(ChaincodeBatchResultKey + "_" + txids[0])
+	if err != nil {
+		return
+	}
+
+	var r1 BatchResult
+	err = json.Unmarshal([]byte(ccEvent), &r1)
+	if err != nil {
+		return
+	}
+
+	r2, err := getString(ChaincodeResultKey + "_" + txids[0])
+	if err != nil {
+		if r2 == Chaincode_Success {
+			switch r1.EventName {
+			case "chaincode_lock":
+				if r1.SrcMethod == "lock" {
+					lockSuccess(r1.Success)
+					lockFail(r1.Fail)
+				} else if r1.SrcMethod == "expire" {
+					expiredSuccess(r1.Success)
+					expiredFail(r1.Fail)
+				} else if r1.SrcMethod == "cancel" {
+					cancelSuccess(r1.Success)
+					cancelFailed(r1.Fail)
+				}
+			case "chaincode_exchange":
+				execTxSuccess(r1.Success)
+				execTxFail(r1.Fail)
+			}
+		}
+	}
+
+	myLogger.Debugf("处理事件 %s: %+v; %+v ...", txids[0], r1, r2)
 }

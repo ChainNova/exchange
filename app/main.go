@@ -90,19 +90,14 @@ func main() {
 		os.Exit(-1)
 	}
 
-	go eventListener(chaincodeName)
+	// 保存chaincodeID 供监听chaincode事件使用
+	chaincodeKey := viper.GetString("app.event.chaincode.key")
+	if err := setString(chaincodeKey, chaincodeName); err != nil {
+		myLogger.Errorf("Failed save chaincodeID [%s]", err)
+		os.Exit(-1)
+	}
 
-	go lockBalance()
-
-	go matchTx()
-
-	go execTx()
-
-	go findExpired()
-
-	go execExpired()
-
-	go execCancel()
+	go task()
 
 	restAddress := viper.GetString("app.rest.address")
 	tlsEnable := viper.GetBool("app.tls.enabled")

@@ -225,8 +225,8 @@ func (a *App) CheckCreate(rw web.ResponseWriter, req *web.Request) {
 	}
 	myLogger.Debugf("check create request parameter:txid = %s", txid)
 
-	v, ok := chaincodeResult[txid]
-	if !ok {
+	v, err := getString(ChaincodeResultKey + "_" + txid)
+	if err != nil {
 		rw.WriteHeader(http.StatusOK)
 		encoder.Encode(restResp{Status: SUCCESS, Result: checkResult{Flag: "0"}})
 	} else if v == Chaincode_Success {
@@ -896,8 +896,8 @@ func (a *App) CheckRelease(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	v, ok := chaincodeResult[txid]
-	if !ok {
+	v, err := getString(ChaincodeResultKey + "_" + txid)
+	if err != nil {
 		rw.WriteHeader(http.StatusOK)
 		encoder.Encode(restResp{Status: SUCCESS, Result: checkResult{Flag: "0"}})
 	} else if v == Chaincode_Success {
@@ -1019,8 +1019,8 @@ func (a *App) CheckAssign(rw web.ResponseWriter, req *web.Request) {
 		return
 	}
 
-	v, ok := chaincodeResult[txid]
-	if !ok {
+	v, err := getString(ChaincodeResultKey + "_" + txid)
+	if err != nil {
 		rw.WriteHeader(http.StatusOK)
 		encoder.Encode(restResp{Status: SUCCESS, Result: checkResult{Flag: "0"}})
 	} else if v == Chaincode_Success {

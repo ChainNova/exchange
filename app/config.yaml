@@ -39,10 +39,11 @@ app:
         # The server name use to verify the hostname returned by TLS handshake
         serverhostoverride:
 
-    events:
-        # The address that the Event service will be enabled on the validator
-        address: 0.0.0.0:7053
-    
+    event:
+        chaincode:
+            # 事件监听的chaincode
+            key: chaincodeID
+
     admin:
         name: admin
         pwd: Xurw3yU9zI0l
@@ -51,21 +52,20 @@ app:
         # redis 轮询时间频率
         polling:
             # 锁定挂单余额
-            lock: 5
+            lock: 5s
             # 撮合挂单
-            match: 5
+            match: 5s
             # 处理撮合成功的挂单
-            exec: 5
+            exec: 5s
             # 查找过期挂单
-            findexpired: 5
+            findexpired: 5s
             # 处理过期挂单
-            expired: 5
+            expired: 5s
             # 处理撤单
-            cancel: 5
+            cancel: 5s
+            # 处理事件
+            event: 5s
     
-    # conn Peer 连接peer方式 grpc/rest
-    connpeer: rest
-
     # inner user
     users: lukas diego jim binhn alice bob assigner
 

@@ -14,19 +14,21 @@ import (
 )
 
 const (
-	PendingOrdersKey       = "pendingOrders"       //待挂单队列
-	PendSuccessOrdersKey   = "pendSuccessOrders"   //挂单失败队列
-	PendFailOrdersKey      = "pendFailOrders"      //挂单失败队列
-	ExchangeKey            = "exchange"            //交易队列  exchange_[srcCurrency]_[desCurrency] 格式
-	ExchangeSuccessKey     = "exchangeSuccess"     //交易执行成功队列
-	LastPriceKey           = "lastPrice"           //上次成交价
-	MatchedOrdersKey       = "matchedOrders"       //撮合的交易等待chaincode处理
-	ExpiredOrdersKey       = "expiredOrders"       //过期挂单队列
-	ExpiredSuccessOrderKey = "expiredSuccessOrder" //过期处理成功
-	CancelingOrderKey      = "cancelingOrders"     //待撤销挂单
-	CancelSuccessOrderKey  = "cancelSuccessOrders" //撤销挂单成功
-	CancelFailOrderKey     = "cancelFailOrders"    //撤销挂单失败
-
+	PendingOrdersKey        = "pendingOrders"        //待挂单队列
+	PendSuccessOrdersKey    = "pendSuccessOrders"    //挂单失败队列
+	PendFailOrdersKey       = "pendFailOrders"       //挂单失败队列
+	ExchangeKey             = "exchange"             //交易队列  exchange_[srcCurrency]_[desCurrency] 格式
+	ExchangeSuccessKey      = "exchangeSuccess"      //交易执行成功队列
+	LastPriceKey            = "lastPrice"            //上次成交价
+	MatchedOrdersKey        = "matchedOrders"        //撮合的交易等待chaincode处理
+	ExpiredOrdersKey        = "expiredOrders"        //过期挂单队列
+	ExpiredSuccessOrderKey  = "expiredSuccessOrder"  //过期处理成功
+	CancelingOrderKey       = "cancelingOrders"      //待撤销挂单
+	CancelSuccessOrderKey   = "cancelSuccessOrders"  //撤销挂单成功
+	CancelFailOrderKey      = "cancelFailOrders"     //撤销挂单失败
+	ChaincodeResultKey      = "chaincodeResult"      // 存储chaincode执行结果，key为txid，value为结果，最终成功以blockEvent为准
+	ChaincodeBatchResultKey = "chaincodeBatchResult" // 存储chaincode批量操作结果，key为txid，value为结果。该内容与chaincodeResult结合确定最终执行结果
+	EventHandledKey         = "chaincodeHanled"      // 处理完成的事件
 )
 
 var client *redis.Client
@@ -143,6 +145,10 @@ func updateOrderTime(uuid string, PendedTime, FinishedTime int64) error {
 
 func getString(key string) (string, error) {
 	return client.Get(key).Result()
+}
+
+func setString(key, value string) error {
+	return client.Set(key, value, 0).Err()
 }
 
 func getLastPrice() int64 {

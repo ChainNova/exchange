@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
 	"time"
 
 	"github.com/hyperledger/fabric/events/consumer"
@@ -28,12 +29,12 @@ type BatchResult struct {
 	Fail      []FailInfo `json:"fail"`
 }
 
-var (
-	chaincodeResult      = make(map[string]string)      //存储chaincode执行结果，key为txid，value为结果，最终成功以blockEvent为准
-	chaincodeBatchResult = make(map[string]BatchResult) //存储chaincode批量操作结果，key为txid，value为结果。该内容与chaincodeResult结合确定最终执行结果
-)
-
 const Chaincode_Success = "SUCCESS"
+
+var (
+	chaincodeID string
+	obcEHClient *consumer.EventsClient
+)
 
 func (a *adapter) GetInterestedEvents() ([]*pb.Interest, error) {
 	if a.chaincodeID != "" {
@@ -73,12 +74,19 @@ func (a *adapter) Recv(msg *pb.Event) (bool, error) {
 
 func (a *adapter) Disconnected(err error) {
 	myLogger.Debug("Disconnected...reconnecting\n")
-	go eventListener(a.chaincodeID)
+	obcEHClient.Stop()
+	go eventListener()
 	myLogger.Debug("Reconnected...\n")
 }
 
-func eventListener(chaincodeID string) {
-	eventAddress := viper.GetString("app.events.address")
+func eventListener() {
+	eventAddress := viper.GetString("event.address")
+
+	chaincodeID, _ = getChaincodeID()
+	if chaincodeID == "" {
+		myLogger.Error("Can't find chaincode!!!")
+		return
+	}
 
 	a := &adapter{
 		blockEvent:     make(chan *pb.Event_Block),
@@ -86,7 +94,8 @@ func eventListener(chaincodeID string) {
 		rejectionEvent: make(chan *pb.Event_Rejection),
 		chaincodeID:    chaincodeID}
 
-	obcEHClient, _ := consumer.NewEventsClient(eventAddress, 50*time.Second, a)
+	t := viper.GetDuration("event.client.regTimeout")
+	obcEHClient, _ = consumer.NewEventsClient(eventAddress, t, a)
 	for {
 		if err := obcEHClient.Start(); err != nil {
 			myLogger.Errorf("could not start chat: %s, reconnecting...\n", err)
@@ -104,8 +113,7 @@ func eventListener(chaincodeID string) {
 			myLogger.Debug("--------------\n")
 			for _, r := range b.Block.Transactions {
 				myLogger.Debugf("Transaction:\n\t[%v]\n", r)
-				chaincodeResult[r.Txid] = Chaincode_Success
-				dealResult(r.Txid)
+				setChaincodeResult(r.Txid, Chaincode_Success)
 			}
 		case r := <-a.rejectionEvent:
 			myLogger.Debug("Received rejected transaction\n")
@@ -113,7 +121,7 @@ func eventListener(chaincodeID string) {
 			myLogger.Debugf("Transaction error:\n%s\n", r.Rejection.ErrorMsg)
 
 			if r.Rejection.Tx != nil {
-				chaincodeResult[r.Rejection.Tx.Txid] = r.Rejection.ErrorMsg
+				setChaincodeResult(r.Rejection.Tx.Txid, r.Rejection.ErrorMsg)
 			}
 		case ce := <-a.chaincodeEvent:
 			myLogger.Debug("Received chaincode event\n")
@@ -125,39 +133,22 @@ func eventListener(chaincodeID string) {
 			if err != nil {
 				continue
 			}
-			chaincodeBatchResult[ce.ChaincodeEvent.TxID] = batch
-			dealResult(ce.ChaincodeEvent.TxID)
+			setChaincodeBatchResult(ce.ChaincodeEvent.TxID, batch)
 		}
 	}
 }
 
-// 非批量操作的结果用chaincodeResult[txid]即可处理
-// 批量操作的结果由两种
-// 1.成功：通过chaincodeResult[txid]=success 和 chaincodeBatchResult[txid].Success[] 来确定
-// 2.失败：a. chaincode里直接return err的失败，这种失败保存在chaincodeResult[txid]=ErrMsg中，表示整批操作全部失败.这种失败不处理失败成员
-// 		  b. chaincodeBatchResult[txid].Fail[]里的失败，表示批量处理部分失败（校验失败），这种失败是处理失败成员
-func dealResult(txid string) {
-	r1, ok1 := chaincodeBatchResult[txid]
-	r2, ok2 := chaincodeResult[txid]
+// 定时检测chaincodeID是否变化过，如果变化，则重新监听新的chaincode事件
+func checkChaincodeID() {
+	ticker := time.NewTicker(viper.GetDuration("event.chaincode.check"))
 
-	if ok1 && ok2 {
-		if r2 == Chaincode_Success {
-			switch r1.EventName {
-			case "chaincode_lock":
-				if r1.SrcMethod == "lock" {
-					lockSuccess(r1.Success)
-					lockFail(r1.Fail)
-				} else if r1.SrcMethod == "expire" {
-					expiredSuccess(r1.Success)
-					expiredFail(r1.Fail)
-				} else if r1.SrcMethod == "cancel" {
-					cancelSuccess(r1.Success)
-					cancelFailed(r1.Fail)
-				}
-			case "chaincode_exchange":
-				execTxSuccess(r1.Success)
-				execTxFail(r1.Fail)
-			}
+	for _ = range ticker.C {
+		newChaincodeID, _ := getChaincodeID()
+		if newChaincodeID != chaincodeID {
+			myLogger.Debug("chaincode changes...reconnecting\n")
+			obcEHClient.Stop()
+			go eventListener()
+			myLogger.Debug("Reconnected...\n")
 		}
 	}
 }

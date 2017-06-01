@@ -228,12 +228,6 @@
 			"revisionTime": "2017-04-03T16:40:24Z"
 		},
 		{
-			"checksumSHA1": "CaNEGJ7DXxUnPMioPJxqS6BeqjE=",
-			"path": "github.com/hyperledger/fabric/events/consumer",
-			"revision": "1f146986c4c06b6b9e21fff052b4dd38e8dd73cc",
-			"revisionTime": "2017-04-03T16:40:24Z"
-		},
-		{
 			"checksumSHA1": "5jvQ987u+cputVh8Lb8/PzBAigQ=",
 			"path": "github.com/hyperledger/fabric/events/producer",
 			"revision": "1f146986c4c06b6b9e21fff052b4dd38e8dd73cc",

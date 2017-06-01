@@ -1,0 +1,35 @@
+###############################################################################
+#
+#
+#    Redis section
+#
+###############################################################################
+redis:
+    # The address that the cli process will use for callbacks from chaincodes
+    address: 0.0.0.0:6379
+    pwd: 
+    db: 0
+    poolsize: 10
+    batch:
+        pending: 10
+        matched: 10
+        expired: 10
+        cancel: 10
+
+###############################################################################
+#
+#    EVENT section
+#
+###############################################################################
+event:
+    chaincode:
+        # 事件监听的chaincode
+        key: chaincodeID
+        # 检测chaincodeID变化
+        check: 30s
+
+    # The address that the Event service will be enabled on the validator
+    address: 0.0.0.0:7053
+
+    client:
+        regTimeout: 10s
