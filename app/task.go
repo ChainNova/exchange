@@ -399,6 +399,8 @@ func handleEventMsg() {
 				execTxFail(r1.Fail)
 			}
 		}
+		//事件处理后，将之移到已处理队列中
+		mvEvent2Handled(txids[0])
 	}
 
 	myLogger.Debugf("处理事件 %s: %+v; %+v ...", txids[0], r1, r2)

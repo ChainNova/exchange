@@ -634,3 +634,7 @@ func getAllBS() ([]string, error) {
 func getRangeZSet(key string, count int64) ([]string, error) {
 	return client.ZRange(key, 0, count-1).Result()
 }
+
+func mvEvent2Handled(v string) error {
+	return client.SMove(ChaincodeResultKey, EventHandledKey, v).Err()
+}
