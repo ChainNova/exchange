@@ -374,40 +374,42 @@ func handleEventMsg() {
 	for _, v := range txids {
 		ccEvent, err := getString(ChaincodeBatchResultKey + "_" + v)
 		if err != nil {
-			myLogger.Errorf("get event error: %s", err)
+			myLogger.Errorf("get event error1: %s", err)
 			continue
 		}
 
 		var r1 BatchResult
 		err = json.Unmarshal([]byte(ccEvent), &r1)
 		if err != nil {
-			myLogger.Errorf("get event error: %s", err)
+			myLogger.Errorf("get event error2: %s", err)
 			continue
 		}
 
 		r2, err := getString(ChaincodeResultKey + "_" + v)
 		if err != nil {
-			if r2 == Chaincode_Success {
-				switch r1.EventName {
-				case "chaincode_lock":
-					if r1.SrcMethod == "lock" {
-						lockSuccess(r1.Success)
-						lockFail(r1.Fail)
-					} else if r1.SrcMethod == "expire" {
-						expiredSuccess(r1.Success)
-						expiredFail(r1.Fail)
-					} else if r1.SrcMethod == "cancel" {
-						cancelSuccess(r1.Success)
-						cancelFailed(r1.Fail)
-					}
-				case "chaincode_exchange":
-					execTxSuccess(r1.Success)
-					execTxFail(r1.Fail)
-				}
-			}
-			//事件处理后，将之移到已处理队列中
-			mvEvent2Handled(txids[0])
+			myLogger.Errorf("get event error3: %s", err)
+			continue
 		}
+		if r2 == Chaincode_Success {
+			switch r1.EventName {
+			case "chaincode_lock":
+				if r1.SrcMethod == "lock" {
+					lockSuccess(r1.Success)
+					lockFail(r1.Fail)
+				} else if r1.SrcMethod == "expire" {
+					expiredSuccess(r1.Success)
+					expiredFail(r1.Fail)
+				} else if r1.SrcMethod == "cancel" {
+					cancelSuccess(r1.Success)
+					cancelFailed(r1.Fail)
+				}
+			case "chaincode_exchange":
+				execTxSuccess(r1.Success)
+				execTxFail(r1.Fail)
+			}
+		}
+		//事件处理后，将之移到已处理队列中
+		mvEvent2Handled(txids[0])
 
 		myLogger.Debugf("处理事件 %s: %+v; %+v ...", v, r1, r2)
 	}
