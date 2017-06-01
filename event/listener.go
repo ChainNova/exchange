@@ -75,6 +75,7 @@ func (a *adapter) Disconnected(err error) {
 
 func eventListener(a *adapter) {
 	eventAddress := viper.GetString("event.address")
+	a.chaincodeID = chaincodeID
 
 	t := viper.GetDuration("event.client.regTimeout")
 	obcEHClient, _ = consumer.NewEventsClient(eventAddress, t, a)
@@ -96,9 +97,9 @@ func checkChaincodeID() {
 	for _ = range ticker.C {
 		newChaincodeID, _ := getChaincodeID()
 		if newChaincodeID != chaincodeID {
-			myLogger.Debug("chaincode changes...reconnecting\n")
+			myLogger.Debugf("chaincode changed: %s-->%s...reconnecting", chaincodeID, newChaincodeID)
 			obcEHClient.Stop()
-			a.chaincodeID = newChaincodeID
+			chaincodeID = newChaincodeID
 			eventListener(a)
 			myLogger.Debug("Reconnected...\n")
 		}
