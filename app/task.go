@@ -363,45 +363,52 @@ const Chaincode_Success = "SUCCESS"
 // 		  b. chaincodeBatchResult[txid].Fail[]里的失败，表示批量处理部分失败（校验失败），这种失败是处理失败成员
 func handleEventMsg() {
 	// 取出事件队列中
-	txids, err := getBathSetMember(ChaincodeResultKey, 1)
+	batch := viper.GetInt64("redis.batch.event")
+	txids, err := getBathSetMember(ChaincodeResultKey, batch)
 	if err != nil || len(txids) == 0 {
 		return
 	}
 
-	ccEvent, err := getString(ChaincodeBatchResultKey + "_" + txids[0])
-	if err != nil {
-		return
-	}
+	myLogger.Debugf("get events: %s", txids)
 
-	var r1 BatchResult
-	err = json.Unmarshal([]byte(ccEvent), &r1)
-	if err != nil {
-		return
-	}
-
-	r2, err := getString(ChaincodeResultKey + "_" + txids[0])
-	if err != nil {
-		if r2 == Chaincode_Success {
-			switch r1.EventName {
-			case "chaincode_lock":
-				if r1.SrcMethod == "lock" {
-					lockSuccess(r1.Success)
-					lockFail(r1.Fail)
-				} else if r1.SrcMethod == "expire" {
-					expiredSuccess(r1.Success)
-					expiredFail(r1.Fail)
-				} else if r1.SrcMethod == "cancel" {
-					cancelSuccess(r1.Success)
-					cancelFailed(r1.Fail)
-				}
-			case "chaincode_exchange":
-				execTxSuccess(r1.Success)
-				execTxFail(r1.Fail)
-			}
+	for _, v := range txids {
+		ccEvent, err := getString(ChaincodeBatchResultKey + "_" + v)
+		if err != nil {
+			myLogger.Errorf("get event error: %s", err)
+			continue
 		}
-		//事件处理后，将之移到已处理队列中
-		mvEvent2Handled(txids[0])
-	}
 
-	myLogger.Debugf("处理事件 %s: %+v; %+v ...", txids[0], r1, r2)
+		var r1 BatchResult
+		err = json.Unmarshal([]byte(ccEvent), &r1)
+		if err != nil {
+			myLogger.Errorf("get event error: %s", err)
+			continue
+		}
+
+		r2, err := getString(ChaincodeResultKey + "_" + v)
+		if err != nil {
+			if r2 == Chaincode_Success {
+				switch r1.EventName {
+				case "chaincode_lock":
+					if r1.SrcMethod == "lock" {
+						lockSuccess(r1.Success)
+						lockFail(r1.Fail)
+					} else if r1.SrcMethod == "expire" {
+						expiredSuccess(r1.Success)
+						expiredFail(r1.Fail)
+					} else if r1.SrcMethod == "cancel" {
+						cancelSuccess(r1.Success)
+						cancelFailed(r1.Fail)
+					}
+				case "chaincode_exchange":
+					execTxSuccess(r1.Success)
+					execTxFail(r1.Fail)
+				}
+			}
+			//事件处理后，将之移到已处理队列中
+			mvEvent2Handled(txids[0])
+		}
+
+		myLogger.Debugf("处理事件 %s: %+v; %+v ...", v, r1, r2)
+	}
 }
