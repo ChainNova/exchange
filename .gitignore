@@ -5,6 +5,7 @@
 *.dylib
 adaptor/adaptor
 app/app
+event/event
 
 # Test binary, build with `go test -c`
 *.test
