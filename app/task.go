@@ -372,24 +372,22 @@ func handleEventMsg() {
 	myLogger.Debugf("get events: %s", txids)
 
 	for _, v := range txids {
-		ccEvent, err := getString(ChaincodeBatchResultKey + "_" + v)
+		r2, err := getString(ChaincodeResultKey + "_" + v)
 		if err != nil {
 			myLogger.Errorf("get event error1: %s", err)
 			continue
 		}
 
+		ccEvent, err := getString(ChaincodeBatchResultKey + "_" + v)
+		if err != nil {
+			myLogger.Errorf("get event error2: %s", err)
+		}
 		var r1 BatchResult
 		err = json.Unmarshal([]byte(ccEvent), &r1)
 		if err != nil {
-			myLogger.Errorf("get event error2: %s", err)
-			continue
+			myLogger.Errorf("get event error3: %s", err)
 		}
 
-		r2, err := getString(ChaincodeResultKey + "_" + v)
-		if err != nil {
-			myLogger.Errorf("get event error3: %s", err)
-			continue
-		}
 		if r2 == Chaincode_Success {
 			switch r1.EventName {
 			case "chaincode_lock":
@@ -403,13 +401,18 @@ func handleEventMsg() {
 					cancelSuccess(r1.Success)
 					cancelFailed(r1.Fail)
 				}
+				//事件处理后，将之移到已处理队列中
+				mvEvent2Handled(txids[0])
 			case "chaincode_exchange":
 				execTxSuccess(r1.Success)
 				execTxFail(r1.Fail)
+				//事件处理后，将之移到已处理队列中
+				mvEvent2Handled(txids[0])
+			default:
+				//事件处理后，将之移到已处理队列中
+				mvEvent2Handled(txids[0])
 			}
 		}
-		//事件处理后，将之移到已处理队列中
-		mvEvent2Handled(txids[0])
 
 		myLogger.Debugf("处理事件 %s: %+v; %+v ...", v, r1, r2)
 	}
