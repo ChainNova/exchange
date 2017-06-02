@@ -76,9 +76,12 @@ app:
 #
 ###############################################################################
 chaincode:
-    id:
-        path: github.com/wutongtree/exchange-chaincode/go
-        name:
+    base:
+        path: github.com/ChainNova/exchange-chaincode/base
+        # chaincode code type: golang  java
+        type: golang
 
-    # chaincode code type: golang  java
-    type: golang
+    business:
+        path: github.com/ChainNova/exchange-chaincode/business
+        # chaincode code type: golang  java
+        type: golang

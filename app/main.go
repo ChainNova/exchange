@@ -85,14 +85,18 @@ func main() {
 	adaptorURL = viper.GetString("app.adaptor.address")
 
 	// Deploy
-	if err := deploy(); err != nil {
+	if err := deployBase(); err != nil {
+		myLogger.Errorf("Failed deploying [%s]", err)
+		os.Exit(-1)
+	}
+	if err := deployBus(); err != nil {
 		myLogger.Errorf("Failed deploying [%s]", err)
 		os.Exit(-1)
 	}
 
 	// 保存chaincodeID 供监听chaincode事件使用
 	chaincodeKey := viper.GetString("app.event.chaincode.key")
-	if err := setString(chaincodeKey, chaincodeName); err != nil {
+	if err := setString(chaincodeKey, chaincodeNameBus); err != nil {
 		myLogger.Errorf("Failed save chaincodeID [%s]", err)
 		os.Exit(-1)
 	}

@@ -7,7 +7,7 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-func deployChaincode(chaincode *Chaincode) (err error) {
+func deployChaincode(chaincode *Chaincode) (msg string, err error) {
 	myLogger.Debug("------------- deploy chaincode -------------")
 
 	reqBody, err := json.Marshal(chaincode)
@@ -32,15 +32,12 @@ func deployChaincode(chaincode *Chaincode) (err error) {
 
 	if result.Status != pb.Response_SUCCESS {
 		myLogger.Errorf("Failed deploying [%s]", result.Msg)
-		return errors.New(string(result.Msg))
+		return "", errors.New(string(result.Msg))
 	}
-
-	chaincodeName = string(result.Msg)
-	myLogger.Debugf("ChaincodeName [%s]", chaincodeName)
 
 	myLogger.Debug("------------- deploy Done! -------------")
 
-	return
+	return string(result.Msg), nil
 }
 
 func invokeChaincode(chaincode *Chaincode) (ret string, err error) {
