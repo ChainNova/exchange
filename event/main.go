@@ -58,7 +58,7 @@ func main() {
 			myLogger.Debug("Received block\n")
 			myLogger.Debug("--------------\n")
 			for _, r := range b.Block.Transactions {
-				myLogger.Debugf("Transaction:\n\t[%v]\n", r)
+				myLogger.Debugf("Transaction:\n\t[%s]\n", r.Txid)
 				setChaincodeResult(r.Txid, Chaincode_Success)
 			}
 		case r := <-a.rejectionEvent:
