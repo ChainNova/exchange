@@ -85,12 +85,12 @@ func main() {
 	adaptorURL = viper.GetString("app.adaptor.address")
 
 	// Deploy
-	if err := deployBase(); err != nil {
-		myLogger.Errorf("Failed deploying [%s]", err)
-		os.Exit(-1)
-	}
+	// if err := deployBase(); err != nil {
+	// 	myLogger.Errorf("Failed deploying base chaincode [%s]", err)
+	// 	os.Exit(-1)
+	// }
 	if err := deployBus(); err != nil {
-		myLogger.Errorf("Failed deploying [%s]", err)
+		myLogger.Errorf("Failed deploying business chaincode [%s]", err)
 		os.Exit(-1)
 	}
 
