@@ -73,14 +73,14 @@ func deployBus() (err error) {
 		return fmt.Errorf("Unknow chiancode type: %s", ccType)
 	}
 
-	// err = login(&pb.Secret{
-	// 	EnrollId:     admin,
-	// 	EnrollSecret: viper.GetString("app.admin.pwd"),
-	// })
-	// if err != nil {
-	// 	myLogger.Errorf("Failed login [%s]", err)
-	// 	return
-	// }
+	err = login(&pb.Secret{
+		EnrollId:     admin,
+		EnrollSecret: viper.GetString("app.admin.pwd"),
+	})
+	if err != nil {
+		myLogger.Errorf("Failed login [%s]", err)
+		return
+	}
 
 	chaincode := Chaincode{
 		ID:    &pb.ChaincodeID{Path: chaincodePath},
