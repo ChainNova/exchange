@@ -64,6 +64,7 @@ func deployBase() (err error) {
 func deployBus() (err error) {
 	chaincodePath := viper.GetString("chaincode.business.path")
 	ccType := viper.GetString("chaincode.business.type")
+	admin = viper.GetString("app.admin.name")
 
 	if ccType == "golang" {
 		chaincodeType = pb.ChaincodeSpec_GOLANG
