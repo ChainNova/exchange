@@ -91,9 +91,15 @@ func main() {
 		os.Exit(-1)
 	}
 
-	time.Sleep(2 * time.Minute)
 	if err := deployBus(); err != nil {
 		myLogger.Errorf("Failed deploying business chaincode [%s]", err)
+		os.Exit(-1)
+	}
+
+	time.Sleep(2 * time.Minute)
+
+	if _, err := initTable(); err != nil {
+		myLogger.Errorf("Failed init table for business chaincode [%s]", err)
 		os.Exit(-1)
 	}
 

@@ -94,6 +94,19 @@ func deployBus() (err error) {
 	return err
 }
 
+func initTable() (txid string, err error) {
+	myLogger.Debug("Chaincode [init] args:[]")
+
+	chaincode := Chaincode{
+		ID:    &pb.ChaincodeID{Name: chaincodeNameBus},
+		Type:  chaincodeType,
+		Input: &pb.ChaincodeInput{Args: util.ToChaincodeArgs("initTable")},
+		User:  pb.Secret{EnrollId: admin},
+	}
+
+	return invokeChaincode(&chaincode)
+}
+
 func createCurrency(currency string, count int64, user string) (txid string, err error) {
 	myLogger.Debugf("Chaincode [create] args:[%s]-[%s],[%s]-[%s]", "currency", currency, "count", count)
 
