@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gocraft/web"
 	"github.com/op/go-logging"
@@ -90,6 +91,7 @@ func main() {
 		os.Exit(-1)
 	}
 
+	time.Sleep(2 * time.Minute)
 	if err := deployBus(); err != nil {
 		myLogger.Errorf("Failed deploying business chaincode [%s]", err)
 		os.Exit(-1)
