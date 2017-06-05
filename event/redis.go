@@ -46,11 +46,14 @@ func isKeyExists(key string) (bool, error) {
 	return client.Exists(key).Result()
 }
 
-func setChaincodeResult(k, v string) error {
+func setChaincodeResult(k, v string, repeat bool) error {
 	key := ChaincodeResultKey + "_" + k
-	// 如果已经存在，说明收到过其他节点反馈的该事件，不再保存
-	if is, err := isKeyExists(key); is || err != nil {
-		return err
+
+	if repeat {
+		// 如果已经存在，说明收到过其他节点反馈的该事件，不再保存
+		if is, err := isKeyExists(key); is || err != nil {
+			return err
+		}
 	}
 
 	pipe := client.Pipeline()

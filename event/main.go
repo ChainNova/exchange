@@ -59,7 +59,7 @@ func main() {
 			myLogger.Debug("--------------\n")
 			for _, r := range b.Block.Transactions {
 				myLogger.Debugf("Transaction:\n\t[%s]\n", r.Txid)
-				setChaincodeResult(r.Txid, Chaincode_Success)
+				setChaincodeResult(r.Txid, Chaincode_Success, true)
 			}
 		case r := <-a.rejectionEvent:
 			myLogger.Debug("Received rejected transaction\n")
@@ -68,7 +68,11 @@ func main() {
 			myLogger.Debugf("Transaction error:\n%s\n", r.Rejection.ErrorMsg)
 
 			if r.Rejection.Tx != nil {
-				setChaincodeResult(r.Rejection.Tx.Txid, r.Rejection.ErrorMsg)
+				if r.Rejection.Tx.Txid == chaincodeID && strings.Contains(r.Rejection.ErrorMsg, "deploy attempted but a chaincode with same name running") {
+					setChaincodeResult(r.Rejection.Tx.Txid, r.Rejection.ErrorMsg, false)
+				} else {
+					setChaincodeResult(r.Rejection.Tx.Txid, r.Rejection.ErrorMsg, true)
+				}
 			}
 		case ce := <-a.chaincodeEvent:
 			myLogger.Debug("Received chaincode event\n")
