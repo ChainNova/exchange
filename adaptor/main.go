@@ -46,6 +46,8 @@ func main() {
 	initConfig()
 
 	crypto.Init()
+
+	// 链码间调用时，保密级别必须是 pb.ConfidentialityLevel_PUBLIC /fabric/core/chaincode/handler.go 179
 	confidentiality(viper.GetBool("security.privacy"))
 
 	if err := initPeerClient(); err != nil {

@@ -27,6 +27,8 @@ var (
 )
 
 func deployBase() (err error) {
+	myLogger.Debug("========== deploy base chaincode ======")
+
 	chaincodePath := viper.GetString("chaincode.base.path")
 	ccType := viper.GetString("chaincode.base.type")
 	admin = viper.GetString("app.admin.name")
@@ -61,6 +63,8 @@ func deployBase() (err error) {
 }
 
 func deployBus() (err error) {
+	myLogger.Debug("========== deploy business chaincode ======")
+
 	chaincodePath := viper.GetString("chaincode.business.path")
 	ccType := viper.GetString("chaincode.business.type")
 	// admin = viper.GetString("app.admin.name")
