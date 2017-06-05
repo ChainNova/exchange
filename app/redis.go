@@ -290,10 +290,13 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 	matchSellUUID := sellOrder.UUID
 	matchUUID := ""
 
+	myLogger.Debugf("buy Order:%+v", buyOrder)
+	myLogger.Debugf("sell Order:%+v", sellOrder)
+
 	// 1.将完成的挂单从队列中移除,并修改撮合时间
 	// 2.将未完成的挂单剩余部分修改对应key的交易数量
 	if !buyOrder.IsBuyAll && buyOrder.SrcCount*endPrice > endCount {
-		// 卖完为止时，源币有剩余则生成新单
+		myLogger.Debug("卖完为止时，源币有剩余则生成新单")
 		tempBuyOrder := Order{}
 		tempBuyOrder.UUID = util.GenerateUUID()
 		tempBuyOrder.SrcCount = endCount / endPrice
@@ -328,7 +331,7 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 
 		matchBuyUUID = tempBuyOrder.UUID
 	} else if buyOrder.IsBuyAll && buyOrder.DesCount > endCount {
-		// 买完为止时，目标币有剩余则生成新单
+		myLogger.Debug("买完为止时，目标币有剩余则生成新单")
 		tempBuyOrder := Order{}
 		tempBuyOrder.UUID = util.GenerateUUID()
 		tempBuyOrder.SrcCount = endCount / endPrice
@@ -363,7 +366,9 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 
 		matchBuyUUID = tempBuyOrder.UUID
 	} else {
-		pipe.ZRem(getBSKey(buyOrder.SrcCurrency, buyOrder.DesCurrency), buyOrder.UUID)
+		setKey := getBSKey(buyOrder.SrcCurrency, buyOrder.DesCurrency)
+		myLogger.Debugs("从待撮合队列[%s]中移除", setKey)
+		pipe.ZRem(setKey, buyOrder.UUID)
 
 		buyOrder.FinalCost = endCount / endPrice
 		buyOrder.MatchedTime = timeStamp
@@ -376,7 +381,7 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 	}
 
 	if !sellOrder.IsBuyAll && sellOrder.SrcCount > endCount {
-		// 卖完为止时，源币有剩余则生成新单
+		myLogger.Debug("卖完为止时，源币有剩余则生成新单")
 		tempSellOrder := Order{}
 		tempSellOrder.UUID = util.GenerateUUID()
 		tempSellOrder.SrcCount = endCount
@@ -411,7 +416,7 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 
 		matchSellUUID = tempSellOrder.UUID
 	} else if sellOrder.IsBuyAll && sellOrder.DesCount > endCount/endPrice {
-		// 买完为止时，目标币有剩余则生成新单
+		myLogger.Debug("买完为止时，目标币有剩余则生成新单")
 		tempSellOrder := *sellOrder
 		tempSellOrder.UUID = util.GenerateUUID()
 		tempSellOrder.SrcCount = endCount
@@ -446,7 +451,9 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 
 		matchSellUUID = tempSellOrder.UUID
 	} else {
-		pipe.ZRem(getBSKey(sellOrder.SrcCurrency, sellOrder.DesCurrency), sellOrder.UUID)
+		setKey := getBSKey(sellOrder.SrcCurrency, sellOrder.DesCurrency)
+		myLogger.Debugs("从待撮合队列[%s]中移除", setKey)
+		pipe.ZRem(setKey, sellOrder.UUID)
 
 		sellOrder.FinalCost = endCount
 		sellOrder.MatchedTime = timeStamp
