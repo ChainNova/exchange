@@ -64,6 +64,7 @@ func main() {
 		case r := <-a.rejectionEvent:
 			myLogger.Debug("Received rejected transaction\n")
 			myLogger.Debug("--------------\n")
+			myLogger.Debugf("Transaction:\n\t[%s]\n", r.Rejection.Tx.Txid)
 			myLogger.Debugf("Transaction error:\n%s\n", r.Rejection.ErrorMsg)
 
 			if r.Rejection.Tx != nil {
