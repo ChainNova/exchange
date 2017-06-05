@@ -367,7 +367,7 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 		matchBuyUUID = tempBuyOrder.UUID
 	} else {
 		setKey := getBSKey(buyOrder.SrcCurrency, buyOrder.DesCurrency)
-		myLogger.Debugs("从待撮合队列[%s]中移除", setKey)
+		myLogger.Debugf("从待撮合队列[%s]中移除", setKey)
 		pipe.ZRem(setKey, buyOrder.UUID)
 
 		buyOrder.FinalCost = endCount / endPrice
@@ -452,7 +452,7 @@ func dealMatchOrder(buyOrder, sellOrder *Order, timeStamp int64) error {
 		matchSellUUID = tempSellOrder.UUID
 	} else {
 		setKey := getBSKey(sellOrder.SrcCurrency, sellOrder.DesCurrency)
-		myLogger.Debugs("从待撮合队列[%s]中移除", setKey)
+		myLogger.Debugf("从待撮合队列[%s]中移除", setKey)
 		pipe.ZRem(setKey, sellOrder.UUID)
 
 		sellOrder.FinalCost = endCount
