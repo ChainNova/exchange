@@ -102,6 +102,7 @@ func main() {
 	// go deployBus()
 	go eventHandle()
 
+	myLogger.Debugf("waiting business chaincode [%s] deployed....", chaincodeNameBus)
 	select {
 	case <-busDeployed:
 		if _, err := initTable(); err != nil {
