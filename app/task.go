@@ -417,11 +417,12 @@ func handleEventMsg() {
 			case "chaincode_exchange":
 				execTxSuccess(r1.Success)
 				execTxFail(r1.Fail)
+			}
 		}
 
 		//事件处理后，将之移到已处理队列中
 		mvEvent2Handled(v)
-		
+
 		myLogger.Debugf("处理事件 %s: %+v; %+v ...", v, r1, r2)
 	}
 }
