@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"time"
+
 	"github.com/gocraft/web"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -18,7 +20,8 @@ var (
 	myLogger = logging.MustGetLogger("app")
 
 	// chaincode url
-	adaptorURL string
+	adaptorURL  string
+	busDeployed = make(chan int)
 )
 
 func buildRouter() *web.Router {
@@ -83,6 +86,7 @@ func main() {
 	defer client.Close()
 
 	adaptorURL = viper.GetString("app.adaptor.address")
+	admin = viper.GetString("app.admin.name")
 
 	// Deploy
 	if err := deployBase(); err != nil {
@@ -94,18 +98,18 @@ func main() {
 		myLogger.Errorf("Failed deploying business chaincode [%s]", err)
 		os.Exit(-1)
 	}
+	// go deployBase()
+	// go deployBus()
+	go eventHandle()
 
-	// time.Sleep(3 * time.Minute)
-
-	// if _, err := initTable(); err != nil {
-	// 	myLogger.Errorf("Failed init table for business chaincode [%s]", err)
-	// 	os.Exit(-1)
-	// }
-
-	// 保存chaincodeID 供监听chaincode事件使用
-	chaincodeKey := viper.GetString("app.event.chaincode.key")
-	if err := setString(chaincodeKey, chaincodeNameBus); err != nil {
-		myLogger.Errorf("Failed save chaincodeID [%s]", err)
+	select {
+	case <-busDeployed:
+		if _, err := initTable(); err != nil {
+			myLogger.Errorf("Failed init table for business chaincode [%s]", err)
+			os.Exit(-1)
+		}
+	case <-time.After(viper.GetDuration("chaincode.timeout")):
+		myLogger.Error("Deploy business chaincode timeout")
 		os.Exit(-1)
 	}
 

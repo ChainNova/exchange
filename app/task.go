@@ -22,7 +22,6 @@ func task() {
 	expiredTicker := time.NewTicker(viper.GetDuration("app.task.polling.expired"))
 	findexpiredTicker := time.NewTicker(viper.GetDuration("app.task.polling.findexpired"))
 	cancelTicker := time.NewTicker(viper.GetDuration("app.task.polling.cancel"))
-	eventTicker := time.NewTicker(viper.GetDuration("app.task.polling.event"))
 
 	for {
 		select {
@@ -38,6 +37,14 @@ func task() {
 			go findExpired()
 		case <-cancelTicker.C:
 			go execCancel()
+		}
+	}
+}
+
+func eventHandle() {
+	eventTicker := time.NewTicker(viper.GetDuration("app.task.polling.event"))
+	for {
+		select {
 		case <-eventTicker.C:
 			go handleEventMsg()
 		}
@@ -389,6 +396,12 @@ func handleEventMsg() {
 		}
 
 		if r2 == Chaincode_Success {
+			if v == chaincodeNameBus {
+				// business chaincode deploy success
+				busDeployed <- 1
+				//事件处理后，将之移到已处理队列中
+				mvEvent2Handled(v)
+			}
 			switch r1.EventName {
 			case "chaincode_lock":
 				if r1.SrcMethod == "lock" {
@@ -402,15 +415,15 @@ func handleEventMsg() {
 					cancelFailed(r1.Fail)
 				}
 				//事件处理后，将之移到已处理队列中
-				mvEvent2Handled(txids[0])
+				mvEvent2Handled(v)
 			case "chaincode_exchange":
 				execTxSuccess(r1.Success)
 				execTxFail(r1.Fail)
 				//事件处理后，将之移到已处理队列中
-				mvEvent2Handled(txids[0])
+				mvEvent2Handled(v)
 			default:
 				//事件处理后，将之移到已处理队列中
-				mvEvent2Handled(txids[0])
+				mvEvent2Handled(v)
 			}
 		}
 

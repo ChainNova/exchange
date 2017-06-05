@@ -85,3 +85,6 @@ chaincode:
         path: github.com/ChainNova/exchange-chaincode/business
         # chaincode code type: golang  java
         type: golang
+    
+    # 两个chaincode部署超时
+    timeout: 300s
