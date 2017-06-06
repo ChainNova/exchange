@@ -382,6 +382,8 @@ func handleEventMsg() {
 		r2, err := getString(ChaincodeResultKey + "_" + v)
 		if err != nil {
 			myLogger.Errorf("get event error1: %s", err)
+			//事件处理后，将之移到已处理队列中
+			mvEvent2Handled(v)
 			continue
 		}
 

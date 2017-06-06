@@ -89,17 +89,16 @@ func main() {
 	admin = viper.GetString("app.admin.name")
 
 	// Deploy
-	if err := deployBase(); err != nil {
-		myLogger.Errorf("Failed deploying base chaincode [%s]", err)
-		os.Exit(-1)
-	}
+	// if err := deployBase(); err != nil {
+	// 	myLogger.Errorf("Failed deploying base chaincode [%s]", err)
+	// 	os.Exit(-1)
+	// }
 
 	if err := deployBus(); err != nil {
 		myLogger.Errorf("Failed deploying business chaincode [%s]", err)
 		os.Exit(-1)
 	}
-	// go deployBase()
-	// go deployBus()
+
 	go eventHandle()
 
 	myLogger.Debugf("waiting business chaincode [%s] deployed....", chaincodeNameBus)
@@ -107,10 +106,10 @@ func main() {
 	case result := <-busDeployed:
 		if result == Chaincode_Success {
 			// 对于同一chaincode已经deploy过了，再次deploy是就不必再次执行initTable
-			if _, err := initTable(); err != nil {
-				myLogger.Errorf("Failed init table for business chaincode [%s]", err)
-				os.Exit(-1)
-			}
+			// if _, err := initTable(); err != nil {
+			// 	myLogger.Errorf("Failed init table for business chaincode [%s]", err)
+			// 	os.Exit(-1)
+			// }
 		}
 	case <-time.After(viper.GetDuration("chaincode.timeout")):
 		myLogger.Error("Deploy business chaincode timeout")
