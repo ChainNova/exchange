@@ -28,7 +28,10 @@ type BatchResult struct {
 	Fail      []FailInfo `json:"fail"`
 }
 
-const Chaincode_Success = "SUCCESS"
+const (
+	Chaincode_Success = "SUCCESS"
+	Chaincode_Repeat  = "REPEAT"
+)
 
 func (a *adapter) GetInterestedEvents() ([]*pb.Interest, error) {
 	if a.chaincodeID != "" {

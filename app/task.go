@@ -385,6 +385,14 @@ func handleEventMsg() {
 			continue
 		}
 
+		if v == chaincodeNameBus {
+			// business chaincode deploy success
+			busDeployed <- r2
+			//事件处理后，将之移到已处理队列中
+			mvEvent2Handled(v)
+			continue
+		}
+
 		ccEvent, err := getString(ChaincodeBatchResultKey + "_" + v)
 		if err != nil {
 			myLogger.Errorf("get event error2: %s", err)
@@ -396,12 +404,6 @@ func handleEventMsg() {
 		}
 
 		if r2 == Chaincode_Success {
-			if v == chaincodeNameBus {
-				// business chaincode deploy success
-				busDeployed <- 1
-				//事件处理后，将之移到已处理队列中
-				mvEvent2Handled(v)
-			}
 			switch r1.EventName {
 			case "chaincode_lock":
 				if r1.SrcMethod == "lock" {

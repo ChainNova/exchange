@@ -21,7 +21,7 @@ var (
 
 	// chaincode url
 	adaptorURL  string
-	busDeployed = make(chan int)
+	busDeployed = make(chan string)
 )
 
 func buildRouter() *web.Router {
@@ -104,10 +104,13 @@ func main() {
 
 	myLogger.Debugf("waiting business chaincode [%s] deployed....", chaincodeNameBus)
 	select {
-	case <-busDeployed:
-		if _, err := initTable(); err != nil {
-			myLogger.Errorf("Failed init table for business chaincode [%s]", err)
-			os.Exit(-1)
+	case result := <-busDeployed:
+		if result == Chaincode_Success {
+			// 对于同一chaincode已经deploy过了，再次deploy是就不必再次执行initTable
+			if _, err := initTable(); err != nil {
+				myLogger.Errorf("Failed init table for business chaincode [%s]", err)
+				os.Exit(-1)
+			}
 		}
 	case <-time.After(viper.GetDuration("chaincode.timeout")):
 		myLogger.Error("Deploy business chaincode timeout")

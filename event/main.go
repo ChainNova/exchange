@@ -69,7 +69,7 @@ func main() {
 
 			if r.Rejection.Tx != nil {
 				if r.Rejection.Tx.Txid == chaincodeID && strings.Contains(r.Rejection.ErrorMsg, "deploy attempted but a chaincode with same name running") {
-					setChaincodeResult(r.Rejection.Tx.Txid, Chaincode_Success, false)
+					setChaincodeResult(r.Rejection.Tx.Txid, Chaincode_Repeat, false)
 				} else {
 					setChaincodeResult(r.Rejection.Tx.Txid, r.Rejection.ErrorMsg, true)
 				}
