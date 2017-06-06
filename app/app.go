@@ -769,7 +769,7 @@ func (a *App) Market(rw web.ResponseWriter, req *web.Request) {
 
 	for _, v := range srcUuids {
 		o, err := getOrder(v)
-		if err == nil {
+		if err == nil && o.Status == 0 {
 			srcDesTxs = append(srcDesTxs,
 				&Market{
 					UUID:  o.UUID,
@@ -779,7 +779,7 @@ func (a *App) Market(rw web.ResponseWriter, req *web.Request) {
 	}
 	for _, v := range desUuids {
 		o, err := getOrder(v)
-		if err == nil {
+		if err == nil && o.Status == 0 {
 			desSrcTxs = append(desSrcTxs,
 				&Market{
 					UUID:  o.UUID,
