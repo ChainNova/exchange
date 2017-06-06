@@ -11,11 +11,11 @@ redis:
     db: 0
     poolsize: 10
     batch:
-        pending: 10
-        matched: 10
-        expired: 10
-        cancel: 10
-        event: 10
+        pending: 20
+        matched: 20
+        expired: 20
+        cancel: 20
+        event: 20
 
 ###############################################################################
 #
@@ -53,19 +53,19 @@ app:
         # redis 轮询时间频率
         polling:
             # 锁定挂单余额
-            lock: 5s
+            lock: 10s
             # 撮合挂单
-            match: 5s
+            match: 10s
             # 处理撮合成功的挂单
-            exec: 5s
+            exec: 10s
             # 查找过期挂单
-            findexpired: 5s
+            findexpired: 60s
             # 处理过期挂单
-            expired: 5s
+            expired: 10s
             # 处理撤单
-            cancel: 5s
+            cancel: 10s
             # 处理事件
-            event: 5s
+            event: 10s
     
     # inner user
     users: lukas diego jim binhn alice bob assigner
