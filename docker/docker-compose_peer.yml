@@ -121,7 +121,7 @@ adaptor0:
   links:
     - membersrvc0
     - vp0
-    ports:
+  ports:
     - 7061:7061
 
 adaptor1:
