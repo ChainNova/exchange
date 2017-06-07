@@ -1,0 +1,90 @@
+###############################################################################
+#
+#
+#    Redis section
+#
+###############################################################################
+redis:
+    # The address that the cli process will use for callbacks from chaincodes
+    address: 0.0.0.0:6379
+    pwd: 
+    db: 0
+    poolsize: 10
+    batch:
+        pending: 20
+        matched: 20
+        expired: 20
+        cancel: 20
+        event: 20
+
+###############################################################################
+#
+#    REST section
+#
+###############################################################################
+app:
+    rest:
+        # The address that the REST service will listen on for incoming requests.
+        address:  0.0.0.0:7060
+    
+    adaptor:
+        address:  http://0.0.0.0:7061
+
+     # TLS Settings for p2p communications
+    tls:
+        enabled: false
+        cert:
+            file: testdata/server1.pem
+        key:
+            file: testdata/server1.key
+        # The server name use to verify the hostname returned by TLS handshake
+        serverhostoverride:
+
+    event:
+        chaincode:
+            # 事件监听的chaincode
+            key: chaincodeID
+
+    admin:
+        name: admin
+        pwd: Xurw3yU9zI0l
+
+    task:
+        # redis 轮询时间频率
+        polling:
+            # 锁定挂单余额
+            lock: 10s
+            # 撮合挂单
+            match: 10s
+            # 处理撮合成功的挂单
+            exec: 10s
+            # 查找过期挂单
+            findexpired: 60s
+            # 处理过期挂单
+            expired: 10s
+            # 处理撤单
+            cancel: 10s
+            # 处理事件
+            event: 10s
+    
+    # inner user
+    users: lukas diego jim binhn alice bob assigner
+
+###############################################################################
+#
+#    Chaincode section
+#
+###############################################################################
+chaincode:
+    base:
+        path: github.com/ChainNova/exchange-chaincode/base
+        # chaincode code type: golang  java
+        type: golang
+
+    business:
+        path: github.com/ChainNova/exchange-chaincode/business
+        # chaincode code type: golang  java
+        type: golang
+    
+    # 两个chaincode部署超时
+    timeout: 300s
