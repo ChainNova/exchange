@@ -59,7 +59,11 @@ func main() {
 			myLogger.Debug("--------------\n")
 			for _, r := range b.Block.Transactions {
 				myLogger.Debugf("Transaction:\n\t[%s]\n", r.Txid)
-				setChaincodeResult(r.Txid, Chaincode_Success, true)
+				if r.Txid == chaincodeID && r.Type == pb.Transaction_CHAINCODE_DEPLOY {
+					setChaincodeResult(r.Txid, Chaincode_Success, false)
+				} else {
+					setChaincodeResult(r.Txid, Chaincode_Success, true)
+				}
 			}
 		case r := <-a.rejectionEvent:
 			myLogger.Debug("Received rejected transaction\n")
