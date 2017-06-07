@@ -117,7 +117,7 @@ adaptor0:
   image: chainnova/exchange-adaptor
   command: adaptor
   environment:
-    - ADAPTOR_PEER_ADDRESS=vp0:7051
+    - ADAPTOR_PEER_ADDRESS=120.92.77.55:7051
   links:
     - membersrvc0
     - vp0
@@ -159,7 +159,7 @@ event0:
    command: event
    environment:
     - EVENT_REDIS_ADDRESS=redis:6379
-    - EVENT_EVENT_ADDRESS=vp0:7053
+    - EVENT_EVENT_ADDRESS=120.92.77.55:7053
    links:
     - redis
     - vp0
