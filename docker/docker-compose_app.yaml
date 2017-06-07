@@ -1,0 +1,10 @@
+
+app:
+   image: chainnova/exchange-app
+   command: app
+   environment:
+    - APP_REDIS_ADDRESS=120.92.77.55:6379
+    - APP_APP_ADAPTOR_ADDRESS=http://120.92.77.55:7061
+   links:
+    #- redis
+    #- adaptor
