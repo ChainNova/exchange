@@ -118,6 +118,8 @@ adaptor0:
   command: adaptor
   environment:
     - ADAPTOR_PEER_ADDRESS=vp0:7051
+    - ADAPTOR_PEER_TLS_ENABLED=true
+    - ADAPTOR_PEER_TLS_CERT_FILE=server1.pem
   links:
     - membersrvc0
     - vp0

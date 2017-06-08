@@ -165,7 +165,7 @@ peer:
 
     # TLS Settings for p2p communications
     tls:
-        enabled:  false
+        enabled:  true
         cert:
             file: testdata/server1.pem
         key:
