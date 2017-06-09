@@ -57,9 +57,13 @@ func deployBase() (err error) {
 	}
 
 	chaincodeNameBase, err = deployChaincode(&chaincode)
+	if err != nil {
+		myLogger.Errorf("Failed deploying base chaincode [%s]", err)
+		return
+	}
 	myLogger.Debugf("chaincodeNameBase [%s]", chaincodeNameBase)
 
-	return err
+	return
 }
 
 func deployBus() (err error) {
@@ -95,6 +99,7 @@ func deployBus() (err error) {
 	chaincodeNameBus, err = deployChaincode(&chaincode)
 	if err != nil {
 		myLogger.Errorf("Failed deploying business chaincode [%s]", err)
+		return
 	}
 	myLogger.Debugf("chaincodeNameBus [%s]", chaincodeNameBus)
 
@@ -102,7 +107,7 @@ func deployBus() (err error) {
 	chaincodeKey := viper.GetString("app.event.chaincode.key")
 	err = setString(chaincodeKey, chaincodeNameBus)
 
-	return err
+	return
 }
 
 func initTable() (txid string, err error) {
